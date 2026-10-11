@@ -128,7 +128,8 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const majorQuality = !minor && !diminished
   const rootRoman = rootsBySemitone[rootInterval]
   const numeral = majorQuality ? rootRoman : rootRoman.replace(/[IV]+$/, value => value.toLowerCase())
-  const intervals = diminished ? [0, 3, 6] : augmented ? [0, 4, 8] : sus2 ? [0, 2, 7] : sus4 ? [0, 5, 7] : minor ? [0, 3, flatFive ? 6 : 7] : [0, 4, flatFive ? 6 : 7]
+  const baseIntervals = diminished ? [0, 3, 6] : augmented ? [0, 4, 8] : sus2 ? [0, 2, 7] : sus4 ? [0, 5, 7] : minor ? [0, 3, 7] : [0, 4, 7]
+  const intervals = flatFive ? baseIntervals.map(interval => interval === 7 ? 6 : interval) : baseIntervals
   const numericExtension = has('13') ? 13 : has('11') ? 11 : has('9') ? 9 : 0
   if (has('major') && has('7')) intervals.push(11)
   else if (has('7') || numericExtension) intervals.push(diminished ? 9 : 10)
