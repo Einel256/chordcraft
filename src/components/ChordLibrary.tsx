@@ -11,7 +11,7 @@ export default function ChordLibrary({ keyName, selectedIndex, onApply, onInsert
 
   return <section className="library panel" aria-labelledby="library-title">
     <div className="library-heading">
-      <div className="panel-heading"><span className="section-index">03</span><div><h2 id="library-title">ディグリーネーム / コード表</h2><p>{keyName} major の度数・コード・音楽的な役割</p></div></div>
+      <div className="panel-heading"><span className="section-index">02</span><div><h2 id="library-title">ディグリーネーム / コード表</h2><p>{keyName} major の度数・コード・音楽的な役割</p></div></div>
       <div className="library-instruction"><span className="library-key">{String(selectedIndex + 1).padStart(2, '0')}</span>小節目を選択中 · 度数カードで置換 / ＋で追加</div>
     </div>
     <div className="diatonic-grid">

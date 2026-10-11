@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { CHORD_MODIFIERS, CHORD_ROOTS, makeCustomChord, type ChordModifier, type KeyName } from '../music/progression'
 
-export default function ChordOptionsPopover({ keyName, root, modifiers, inversion, slashBass, octave, duration, notes, onNotesChange, onOctaveChange, onDurationChange, onRootChange, onModifiersChange, onInversionChange, onSlashBassChange, onClose }: {
+export default function ChordOptionsPopover({ keyName, root, modifiers, inversion, slashBass, octave, duration, notes, allNotes, onNotesChange, onOctaveChange, onDurationChange, onRootChange, onModifiersChange, onInversionChange, onSlashBassChange, onClose }: {
   keyName: KeyName
   root: KeyName
   modifiers: ChordModifier[]
@@ -10,6 +10,7 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
   octave: number
   duration: '4n' | '8n'
   notes: number[]
+  allNotes: number[]
   onNotesChange: (notes: number[]) => void
   onOctaveChange: (value: 3 | 4 | 5) => void
   onDurationChange: (value: '4n' | '8n') => void
@@ -36,6 +37,7 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
       const conflicts: Partial<Record<ChordModifier, ChordModifier[]>> = {
         m: ['dim', 'aug', 'sus2', 'sus4'], dim: ['m', 'aug', 'sus2', 'sus4'], aug: ['m', 'dim', 'sus2', 'sus4'],
         sus2: ['m', 'dim', 'aug', 'sus4'], sus4: ['m', 'dim', 'aug', 'sus2'],
+        '9': ['add9'], '11': ['add11'], '13': ['add13'], add9: ['9'], add11: ['11'], add13: ['13'],
       }
       next = next.filter(value => !conflicts[modifier]?.includes(value))
     }
@@ -54,7 +56,7 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
       <option value="">転回形に従う</option>{CHORD_ROOTS.map((note, index) => <option value={index} key={note}>{note}ベース</option>)}
     </select></label>
     <span className="modifier-label">構成音</span>
-    <div className="modifier-grid">{notes.map(note => <label className="modifier-chip checked" key={note}><input type="checkbox" checked onChange={event => { if (!event.target.checked) onNotesChange(notes.filter(value => value !== note)) }} /><span>{CHORD_ROOTS[note]} ×</span></label>)}</div>
+    <div className="modifier-grid">{allNotes.map(note => <label className={`modifier-chip ${notes.includes(note) ? 'checked' : ''}`} key={note}><input type="checkbox" checked={notes.includes(note)} onChange={event => onNotesChange(event.target.checked ? [...new Set([...notes, note])] : notes.filter(value => value !== note))} /><span>{CHORD_ROOTS[note]}</span></label>)}</div>
     <span className="modifier-label">オプションを組み合わせる</span>
     <div className="modifier-grid">{CHORD_MODIFIERS.map(option => <label className={`modifier-chip ${modifiers.includes(option.value) ? 'checked' : ''}`} key={option.value} title={option.description}><input type="checkbox" checked={modifiers.includes(option.value)} onChange={event => toggle(option.value, event.target.checked)} /><span>{option.label}</span></label>)}</div>
     <div className="inline-editor-footer"><span><small>PREVIEW · 自動反映</small><strong>{preview.symbol}</strong></span></div>

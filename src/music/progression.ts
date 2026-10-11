@@ -129,23 +129,24 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const rootRoman = rootsBySemitone[rootInterval]
   const numeral = majorQuality ? rootRoman : rootRoman.replace(/[IV]+$/, value => value.toLowerCase())
   const intervals = diminished ? [0, 3, 6] : augmented ? [0, 4, 8] : sus2 ? [0, 2, 7] : sus4 ? [0, 5, 7] : minor ? [0, 3, flatFive ? 6 : 7] : [0, 4, flatFive ? 6 : 7]
+  const numericExtension = has('13') ? 13 : has('11') ? 11 : has('9') ? 9 : 0
   if (has('major') && has('7')) intervals.push(11)
-  else if (has('7')) intervals.push(diminished ? 9 : 10)
+  else if (has('7') || numericExtension) intervals.push(diminished ? 9 : 10)
   if (has('6')) intervals.push(9)
   if (has('add9')) intervals.push(14)
   if (has('add11')) intervals.push(17)
   if (has('add13')) intervals.push(21)
-  if (has('9')) intervals.push(14)
-  if (has('11')) intervals.push(17)
-  if (has('13')) intervals.push(21)
+  if (numericExtension >= 9) intervals.push(14)
+  if (numericExtension >= 11) intervals.push(17)
+  if (numericExtension >= 13) intervals.push(21)
   const baseSymbol = diminished || (minor && flatFive) ? 'dim' : augmented ? 'aug' : sus2 ? 'sus2' : sus4 ? 'sus4' : minor ? 'm' : ''
   let seventhSymbol = ''
   let seventhRoman = ''
   if (has('major') && has('7')) { seventhSymbol = minor ? 'mM7' : `${baseSymbol}maj7`; seventhRoman = 'maj⁷' }
-  else if (has('7')) { seventhSymbol = diminished ? 'dim7' : sus2 || sus4 ? `7${baseSymbol}` : `${baseSymbol}7`; seventhRoman = diminished ? '°⁷' : '⁷' }
+  else if (has('7')) { seventhSymbol = numericExtension ? '' : diminished ? 'dim7' : sus2 || sus4 ? `7${baseSymbol}` : `${baseSymbol}7`; seventhRoman = diminished ? '°⁷' : '⁷' }
   const addSixthSymbol = has('6') ? (has('major') || has('7') ? '(add6)' : '6') : ''
   const extensionSymbol = (['add9', 'add11', 'add13'] as const).filter(option => has(option)).join('')
-  const addedExtensions = [9, 11, 13].filter(value => has(String(value) as ChordModifier)).join('')
+  const addedExtensions = numericExtension ? `${has('major') && has('7') ? 'maj' : minor ? 'm' : ''}${numericExtension}` : ''
   const romanSuffix = `${diminished && !seventhRoman.includes('°') ? '°' : ''}${seventhRoman}${has('6') && !has('major') && !has('7') ? '⁶' : ''}${has('add9') ? 'add9' : ''}${has('add11') ? 'add11' : ''}${has('add13') ? 'add13' : ''}`
   const degree = scale.indexOf(rootInterval)
   const role: Chord['role'] = degree < 0 ? 'Color' : degree === 0 || degree === 2 || degree === 5 ? 'Tonic' : degree === 1 || degree === 3 ? 'Subdominant' : 'Dominant'
@@ -154,7 +155,7 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const inversion = Math.max(0, Math.min(voicing.inversion ?? 0, notes.length - 1))
   const bass = voicing.slashBass ?? (inversion > 0 ? notes[inversion] : undefined)
   const slash = bass === undefined || bass === pitch ? '' : `/${names[bass]}`
-  const suffix = `${seventhSymbol || baseSymbol}${flatFive && !diminished && !minor ? '♭5' : ''}${addSixthSymbol}${addedExtensions}${extensionSymbol}`
+  const suffix = `${addedExtensions || seventhSymbol || baseSymbol}${flatFive && !diminished && !minor ? '♭5' : ''}${addSixthSymbol}${extensionSymbol}`
   return { symbol: `${rootName}${suffix}${slash}`, roman, role, pitch, notes, bass, inversion }
 }
 
