@@ -16,6 +16,13 @@ function notePitch(note: string): number {
 
 /** Convert common chord symbols into pitch classes. No audio/UI dependency. */
 export function parseChord(symbol: string): ParsedChord {
+  const literalNotes = symbol.trim().match(/^(?:[A-G](?:#|b|♯|♭)?){3,}$/)
+  if (literalNotes) {
+    const noteTokens = symbol.match(/[A-G](?:#|b|♯|♭)?/g) ?? []
+    const pitches = [...new Set(noteTokens.map(notePitch))]
+    const root = pitches[0]
+    return { root, intervals: pitches.map(pitch => (pitch - root + 12) % 12), pitchClasses: pitches }
+  }
   const match = symbol.trim().match(/^([A-G](?:#|b|♯|♭)?)(.*?)(?:\/([A-G](?:#|b|♯|♭)?))?$/)
   if (!match) throw new Error(`Invalid chord symbol: ${symbol}`)
   const [, rootName, rawQuality, bassName] = match
@@ -116,6 +123,17 @@ export function voiceChordProgression(symbols: string[], allowInversions = false
     previous = notes
     return notes
   })
+}
+
+export function chordFromNoteSequence(sequence: string): { symbol: string; roman: string; role: 'Tonic' | 'Subdominant' | 'Dominant' | 'Color'; pitch: number; notes: number[] } {
+  const noteNames = sequence.match(/[A-G](?:#|b|♯|♭)?/g) ?? []
+  if (noteNames.length < 2 || noteNames.join('') !== sequence) throw new Error('Invalid note sequence')
+  const parsed = parseChord(sequence)
+  const intervals = parsed.intervals.slice().sort((a, b) => a - b).join(',')
+  const known: Record<string, string> = { '0,4,7': '', '0,3,7': 'm', '0,3,6': 'dim', '0,4,8': 'aug', '0,2,7': 'sus2', '0,5,7': 'sus4' }
+  const suffix = known[intervals]
+  const symbol = suffix === undefined ? sequence : `${noteNames[0]}${suffix}`
+  return { symbol, roman: symbol, role: 'Color', pitch: parsed.root, notes: parsed.pitchClasses }
 }
 
 /** Add slash basses for the smoothest available chord-tone inversions. */

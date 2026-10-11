@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { CHORD_MODIFIERS, CHORD_ROOTS, makeCustomChord, type ChordModifier, type KeyName } from '../music/progression'
 
-export default function ChordOptionsPopover({ keyName, root, modifiers, inversion, slashBass, octave, duration, onOctaveChange, onDurationChange, onRootChange, onModifiersChange, onInversionChange, onSlashBassChange, onClose }: {
+export default function ChordOptionsPopover({ keyName, root, modifiers, inversion, slashBass, octave, duration, notes, onNotesChange, onOctaveChange, onDurationChange, onRootChange, onModifiersChange, onInversionChange, onSlashBassChange, onClose }: {
   keyName: KeyName
   root: KeyName
   modifiers: ChordModifier[]
@@ -9,6 +9,8 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
   slashBass: number | undefined
   octave: number
   duration: '4n' | '8n'
+  notes: number[]
+  onNotesChange: (notes: number[]) => void
   onOctaveChange: (value: 3 | 4 | 5) => void
   onDurationChange: (value: '4n' | '8n') => void
   onRootChange: (root: KeyName) => void
@@ -27,7 +29,7 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
   }, [onClose])
 
   const preview = makeCustomChord(keyName, root, modifiers, { inversion, slashBass })
-  const toneNames = preview.notes.map(note => CHORD_ROOTS[note])
+  const toneNames = notes.map(note => CHORD_ROOTS[note])
   const toggle = (modifier: ChordModifier, checked: boolean) => {
     let next = checked ? [...modifiers, modifier] : modifiers.filter(value => value !== modifier)
     if (checked) {
@@ -51,6 +53,8 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
     <label>分数コードのベース音<select value={slashBass ?? ''} onChange={event => onSlashBassChange(event.target.value === '' ? undefined : Number(event.target.value))}>
       <option value="">転回形に従う</option>{CHORD_ROOTS.map((note, index) => <option value={index} key={note}>{note}ベース</option>)}
     </select></label>
+    <span className="modifier-label">構成音</span>
+    <div className="modifier-grid">{notes.map(note => <label className="modifier-chip checked" key={note}><input type="checkbox" checked onChange={event => { if (!event.target.checked) onNotesChange(notes.filter(value => value !== note)) }} /><span>{CHORD_ROOTS[note]} ×</span></label>)}</div>
     <span className="modifier-label">オプションを組み合わせる</span>
     <div className="modifier-grid">{CHORD_MODIFIERS.map(option => <label className={`modifier-chip ${modifiers.includes(option.value) ? 'checked' : ''}`} key={option.value} title={option.description}><input type="checkbox" checked={modifiers.includes(option.value)} onChange={event => toggle(option.value, event.target.checked)} /><span>{option.label}</span></label>)}</div>
     <div className="inline-editor-footer"><span><small>PREVIEW · 自動反映</small><strong>{preview.symbol}</strong></span></div>

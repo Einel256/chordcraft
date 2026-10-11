@@ -22,7 +22,7 @@ export class ChordPlayback {
   private octaveShift = 0
   private tickCount = 0
   private chordDuration: '4n' | '8n' = '4n'
-  private chordSettings: { octave?: number; duration?: '4n' | '8n' }[] = []
+  private chordSettings: { octave?: number; duration?: '4n' | '8n'; notes?: number[] }[] = []
 
   setBpm(bpm: number) {
     Tone.Transport.bpm.value = bpm
@@ -39,7 +39,7 @@ export class ChordPlayback {
     this.filter = null
   }
 
-  async start(symbols: string[], bpm: number, callbacks: PlaybackCallbacks, loop = false, rootOctave = 3, chordDuration: '4n' | '8n' = '4n', chordSettings: { octave?: number; duration?: '4n' | '8n' }[] = []) {
+  async start(symbols: string[], bpm: number, callbacks: PlaybackCallbacks, loop = false, rootOctave = 3, chordDuration: '4n' | '8n' = '4n', chordSettings: { octave?: number; duration?: '4n' | '8n'; notes?: number[] }[] = []) {
     await Tone.start()
     this.stop()
     await this.ensureSynth()
@@ -88,6 +88,22 @@ export class ChordPlayback {
     const notes = voiceChordProgression([symbol])[0].map(note => midiToToneNote(note + shift))
     if (this.soundPreset === 'piano') this.sampler?.triggerAttackRelease(notes, '2n', Tone.now(), 0.24)
     else this.synth?.triggerAttackRelease(notes, '2n', Tone.now(), 0.24)
+  }
+
+  async previewMidi(midi: number) {
+    await Tone.start()
+    await this.ensureSynth()
+    const note = midiToToneNote(midi)
+    if (this.soundPreset === 'piano') this.sampler?.triggerAttackRelease(note, '8n', Tone.now(), 0.3)
+    else this.synth?.triggerAttackRelease(note, '8n', Tone.now(), 0.3)
+  }
+
+  async previewMidiNotes(midis: number[]) {
+    await Tone.start()
+    await this.ensureSynth()
+    const notes = midis.map(midiToToneNote)
+    if (this.soundPreset === 'piano') this.sampler?.triggerAttackRelease(notes, '8n', Tone.now(), 0.3)
+    else this.synth?.triggerAttackRelease(notes, '8n', Tone.now(), 0.3)
   }
 
   /** Update upcoming bars without interrupting transport; replacing the active chord is audible immediately. */
@@ -207,7 +223,8 @@ export class ChordPlayback {
 
   private getSoundingMidi(index: number) {
     const shift = this.chordSettings[index]?.octave === undefined ? this.octaveShift : (this.chordSettings[index].octave! - 3) * 12
-    return (this.voicings[index] ?? []).map(note => note + shift)
+    const allowedNotes = this.chordSettings[index]?.notes
+    return (this.voicings[index] ?? []).map(note => note + shift).filter(note => !allowedNotes || allowedNotes.includes(note % 12))
   }
 
   private releaseAll(time?: number) {

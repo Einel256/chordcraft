@@ -4,7 +4,7 @@ import { ChordPlayback, type SoundPreset } from './audio/playback'
 import ChordLibrary from './components/ChordLibrary'
 import ChordOptionsPopover from './components/ChordOptionsPopover'
 import PianoKeyboard from './components/PianoKeyboard'
-import { autoVoiceChordSymbols, parseChord, voiceChordProgression } from './audio/chordVoicing'
+import { autoVoiceChordSymbols, chordFromNoteSequence, parseChord, voiceChordProgression } from './audio/chordVoicing'
 
 function Icon({ name }: { name: 'spark' | 'arrow' | 'music' | 'copy' }) {
   if (name === 'spark') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
@@ -22,19 +22,19 @@ const progressionPresets: ProgressionPreset[] = [
   { name: '王道進行', degrees: 'IV – V – iii – vi', chords: [{ offset: 5, modifiers: [] }, { offset: 7, modifiers: [] }, { offset: 4, modifiers: ['m'] }, { offset: 9, modifiers: ['m'] }] },
   { name: 'カノン進行', degrees: 'I – V – vi – iii – IV – I – IV – V', chords: [{ offset: 0, modifiers: [] }, { offset: 7, modifiers: [] }, { offset: 9, modifiers: ['m'] }, { offset: 4, modifiers: ['m'] }, { offset: 5, modifiers: [] }, { offset: 0, modifiers: [] }, { offset: 5, modifiers: [] }, { offset: 7, modifiers: [] }] },
   { name: '小室進行', degrees: 'vi – IV – V – I', chords: [{ offset: 9, modifiers: ['m'] }, { offset: 5, modifiers: [] }, { offset: 7, modifiers: [] }, { offset: 0, modifiers: [] }] },
-  { name: '丸サ進行', degrees: 'IVmaj7 – III7 – VIm7 – Vm7 – I7', chords: [{ offset: 5, modifiers: ['M'] }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['7'] }] },
-  { name: 'IV–V–vi–I', degrees: 'IVmaj7 – V7 – vi7 – Imaj7', chords: [{ offset: 5, modifiers: ['M'] }, { offset: 7, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['M'] }] },
-  { name: 'オンコード王道', degrees: 'IVmaj7 – V7/IV – iii7 – vi7', chords: [{ offset: 5, modifiers: ['M'] }, { offset: 7, modifiers: ['7'], bassOffset: 5 }, { offset: 4, modifiers: ['m', '7'] }, { offset: 9, modifiers: ['m', '7'] }] },
+  { name: '丸サ進行', degrees: 'IVmaj7 – III7 – VIm7 – Vm7 – I7', chords: [{ offset: 5, modifiers: ['major', '7'] }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['7'] }] },
+  { name: 'IV–V–vi–I', degrees: 'IVmaj7 – V7 – vi7 – Imaj7', chords: [{ offset: 5, modifiers: ['major', '7'] }, { offset: 7, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['major', '7'] }] },
+  { name: 'オンコード王道', degrees: 'IVmaj7 – V7/IV – iii7 – vi7', chords: [{ offset: 5, modifiers: ['major', '7'] }, { offset: 7, modifiers: ['7'], bassOffset: 5 }, { offset: 4, modifiers: ['m', '7'] }, { offset: 9, modifiers: ['m', '7'] }] },
   { name: 'ポップパンク', degrees: 'I – V – vi – IV', chords: [{ offset: 0, modifiers: [] }, { offset: 7, modifiers: [] }, { offset: 9, modifiers: ['m'] }, { offset: 5, modifiers: [] }] },
-  { name: '6251進行', degrees: 'vi7 – ii7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 2, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['M'] }] },
-  { name: '6415進行', degrees: 'vi7 – IVmaj7 – Imaj7 – V7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 5, modifiers: ['M'] }, { offset: 0, modifiers: ['M'] }, { offset: 7, modifiers: ['7'] }] },
-  { name: '4156進行', degrees: 'Imaj7 – IVmaj7 – V7 – vi7', chords: [{ offset: 0, modifiers: ['M'] }, { offset: 5, modifiers: ['M'] }, { offset: 7, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }] },
-  { name: '枯葉進行', degrees: 'ii7 – V7 – Imaj7 – IVmaj7 – viiø7 – III7 – vi7', chords: [{ offset: 2, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['M'] }, { offset: 5, modifiers: ['M'] }, { offset: 11, modifiers: [], suffix: 'm7♭5', roman: 'viiø7' }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }] },
-  { name: 'コンファメ進行', degrees: 'Imaj7 – viiø7 – III7 – vi7 – v7 – I7 – IVmaj7', chords: [{ offset: 0, modifiers: ['M'] }, { offset: 11, modifiers: [], suffix: 'm7♭5', roman: 'viiø7' }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['7'] }, { offset: 5, modifiers: ['M'] }] },
+  { name: '6251進行', degrees: 'vi7 – ii7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 2, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
+  { name: '6415進行', degrees: 'vi7 – IVmaj7 – Imaj7 – V7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 5, modifiers: ['major', '7'] }, { offset: 0, modifiers: ['major', '7'] }, { offset: 7, modifiers: ['7'] }] },
+  { name: '4156進行', degrees: 'Imaj7 – IVmaj7 – V7 – vi7', chords: [{ offset: 0, modifiers: ['major', '7'] }, { offset: 5, modifiers: ['major', '7'] }, { offset: 7, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }] },
+  { name: '枯葉進行', degrees: 'ii7 – V7 – Imaj7 – IVmaj7 – viiø7 – III7 – vi7', chords: [{ offset: 2, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }, { offset: 5, modifiers: ['major', '7'] }, { offset: 11, modifiers: [], suffix: 'm7♭5', roman: 'viiø7' }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }] },
+  { name: 'コンファメ進行', degrees: 'Imaj7 – viiø7 – III7 – vi7 – v7 – I7 – IVmaj7', chords: [{ offset: 0, modifiers: ['major', '7'] }, { offset: 11, modifiers: [], suffix: 'm7♭5', roman: 'viiø7' }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['7'] }, { offset: 5, modifiers: ['major', '7'] }] },
   { name: '♯Vdim7経過', degrees: 'I – V7 – ♯Vdim7 – vi7 – IV', chords: [{ offset: 0, modifiers: [] }, { offset: 7, modifiers: ['7'] }, { offset: 8, modifiers: ['dim', '7'], roman: '♯Vdim7' }, { offset: 9, modifiers: ['m', '7'] }, { offset: 5, modifiers: [] }] },
-  { name: 'ドッペルドミナント', degrees: 'vi7 – II7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 2, modifiers: ['7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['M'] }] },
-  { name: '♯IVø7ドミナント', degrees: 'vi7 – ♯ivø7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 6, modifiers: [], suffix: 'm7♭5', roman: '♯ivø7' }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['M'] }] },
-  { name: 'マリオ進行', degrees: 'I/V – ♭VImaj7 – ♭VII7 – Imaj7', chords: [{ offset: 0, modifiers: [], bassOffset: 7 }, { offset: 8, modifiers: ['M'] }, { offset: 10, modifiers: ['7'] }, { offset: 0, modifiers: ['M'] }] },
+  { name: 'ドッペルドミナント', degrees: 'vi7 – II7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 2, modifiers: ['7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
+  { name: '♯IVø7ドミナント', degrees: 'vi7 – ♯ivø7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 6, modifiers: [], suffix: 'm7♭5', roman: '♯ivø7' }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
+  { name: 'マリオ進行', degrees: 'I/V – ♭VImaj7 – ♭VII7 – Imaj7', chords: [{ offset: 0, modifiers: [], bassOffset: 7 }, { offset: 8, modifiers: ['major', '7'] }, { offset: 10, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
   { name: 'サブドミナントマイナー', degrees: 'IV – iv/♭VI – I', chords: [{ offset: 5, modifiers: [] }, { offset: 5, modifiers: ['m'], bassOffset: 8 }, { offset: 0, modifiers: [] }] },
   { name: 'サブドミナントマイナー＋iii', degrees: 'IV – iii7 – iv/♭VI – I', chords: [{ offset: 5, modifiers: [] }, { offset: 4, modifiers: ['m', '7'] }, { offset: 5, modifiers: ['m'], bassOffset: 8 }, { offset: 0, modifiers: [] }] },
   { name: '偽終止・♯IVø7代用', degrees: 'V7 – ♯ivø7', chords: [{ offset: 7, modifiers: ['7'] }, { offset: 6, modifiers: [], suffix: 'm7♭5', roman: '♯ivø7' }] },
@@ -59,7 +59,7 @@ function chordFromRoman(token: string, key: KeyName): Chord | undefined {
   const rootPitch = (KEYS.indexOf(key) + majorScaleDegrees[index] + (accidental === '#' ? 1 : accidental ? 11 : 0)) % 12
   const root = KEYS[rootPitch]
   const isLower = roman === roman.toLowerCase()
-  let modifiers: ChordModifier[] = suffix === '°' || suffix === 'dim' ? ['dim'] : suffix === 'maj7' || suffix === 'M7' ? ['M'] : suffix === 'm7' ? ['m', '7'] : suffix === '7' ? ['7'] : suffix === 'sus2' ? ['sus2'] : suffix === 'sus4' ? ['sus4'] : isLower ? ['m'] : []
+  let modifiers: ChordModifier[] = suffix === '°' || suffix === 'dim' ? ['dim'] : suffix === 'maj7' || suffix === 'M7' ? ['major', '7'] : suffix === 'm7' ? ['m', '7'] : suffix === '7' ? ['7'] : suffix === 'sus2' ? ['sus2'] : suffix === 'sus4' ? ['sus4'] : isLower ? ['m'] : []
   if (degree === 7 && !suffix) modifiers = ['dim']
   if (suffix === '7' && isLower) modifiers = ['m', '7']
   return makeCustomChord(key, root, modifiers)
@@ -98,8 +98,8 @@ function modifiersFromSymbol(symbol: string): ChordModifier[] {
   else if (suffix.includes('sus4')) modifiers.push('sus4')
   else if (/^m(?!aj)/.test(suffix)) modifiers.push('m')
   if (/b5|♭5/.test(suffix)) modifiers.push('b5')
-  if (suffix.includes('mM7')) modifiers.push('M')
-  else if (suffix.includes('maj7')) modifiers.push('M')
+  if (suffix.includes('mM7')) modifiers.push('major', '7')
+  else if (suffix.includes('maj7')) modifiers.push('major', '7')
   else if (suffix.includes('dim7') || suffix.includes('m7') || suffix.includes('aug7') || /sus[24]7/.test(suffix) || /^7/.test(suffix)) modifiers.push('7')
   if (suffix === '6' || suffix.endsWith('m6') || suffix.includes('add6')) modifiers.push('6')
   if (/^(?:m|maj)?9/.test(suffix)) modifiers.push('9')
@@ -107,7 +107,7 @@ function modifiersFromSymbol(symbol: string): ChordModifier[] {
   if (/^(?:m|maj)?13/.test(suffix)) modifiers.push('13')
   if (suffix === '9' || suffix === '11' || suffix === '13') modifiers.push('7')
   if (['m9', 'm11', 'm13'].includes(suffix)) modifiers.push('7')
-  if (/^(?:maj|m)?(?:9|11|13)$/.test(suffix) && suffix.startsWith('maj')) modifiers.push('M')
+  if (/^(?:maj|m)?(?:9|11|13)$/.test(suffix) && suffix.startsWith('maj')) modifiers.push('major', '7')
   if (/^(?:maj|m)?(?:9|11|13)$/.test(suffix) && suffix.startsWith('m')) modifiers.push('m')
   if (suffix.includes('add9') || ['9', 'maj9', 'm9', '11', 'maj11', 'm11', '13', 'maj13', 'm13'].includes(suffix)) modifiers.push('add9')
   if (suffix.includes('add11') || ['11', 'maj11', 'm11', '13', 'maj13', 'm13'].includes(suffix)) modifiers.push('add11')
@@ -176,10 +176,15 @@ function App() {
     setSelectedIndex(index)
     if (!playbackRef.current) playbackRef.current = new ChordPlayback()
     try {
-      await playbackRef.current.preview(progression[index].symbol, rootOctave)
+      const notes = (voicings[index] ?? []).filter(note => progression[index].notes.includes(note % 12)).map(note => note + ((progression[index].octave ?? 3) - 3) * 12)
+      await playbackRef.current.previewMidiNotes(notes)
     } catch (error) {
       setPlaybackError(error instanceof Error ? error.message : 'コードを試聴できませんでした')
     }
+  }
+  const previewMidiNote = async (midi: number) => {
+    if (!playbackRef.current) playbackRef.current = new ChordPlayback()
+    try { await playbackRef.current.previewMidi(midi) } catch (error) { setPlaybackError(error instanceof Error ? error.message : '音を再生できませんでした') }
   }
   const importProgression = () => {
     const input = progressionInput.trim()
@@ -187,7 +192,7 @@ function App() {
     if (!tokens.length) { setProgressionInputError('コード進行を入力してください'); return }
     if (tokens.length + progression.length > 64) { setProgressionInputError('コード進行は最大64個です'); return }
     try {
-      const next = tokens.map(token => /^[1-7]$/.test(token) ? chordFromDegree(Number(token), settings.key) : chordFromInput(token, settings.key))
+      const next = tokens.map(token => /^[1-7]$/.test(token) ? chordFromDegree(Number(token), settings.key) : /^(?:[A-G](?:#|b|♯|♭)?){2,}$/.test(token) ? chordFromNoteSequence(token) : chordFromInput(token, settings.key))
       editProgression([...progression, ...next], progression.length)
       setEditingIndex(null)
       setProgressionInputError('')
@@ -226,7 +231,7 @@ function App() {
     setCustomInversion(inversion)
     setCustomSlashBass(slashBass)
     const chord = makeCustomChord(settings.key, root, modifiers, { inversion, slashBass })
-    editProgression(progression.map((current, index) => index === selectedIndex ? chord : current), selectedIndex)
+    editProgression(progression.map((current, index) => index === selectedIndex ? { ...chord, octave: current.octave, duration: current.duration } : current), selectedIndex)
   }
   const addChord = () => {
     if (progression.length >= 64) return
@@ -253,7 +258,6 @@ function App() {
     historyRef.current.push(progression)
     setProgression(next); setSelectedIndex(Math.min(selectedIndex, next.length - 1)); setCopied(false)
   }
-  const resetProgression = () => editProgression(generateProgression(initial), 0)
   const moveChord = (offset: -1 | 1) => {
     const destination = selectedIndex + offset
     if (destination < 0 || destination >= progression.length) return
@@ -272,7 +276,7 @@ function App() {
       await playbackRef.current.start(progression.map(chord => chord.symbol), bpm, {
         onChord: (index, soundingMidi) => { setPlayingIndex(index); setPlayingMidiNotes(soundingMidi) },
         onEnd: () => { setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null) },
-      }, loopEnabled, rootOctave, chordDuration, progression.map(chord => ({ octave: chord.octave, duration: chord.duration })))
+      }, loopEnabled, rootOctave, chordDuration, progression.map(chord => ({ octave: chord.octave, duration: chord.duration, notes: chord.notes })))
     } catch (error) {
       setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null)
       setPlaybackError(error instanceof Error ? error.message : '音声を開始できませんでした')
@@ -335,7 +339,7 @@ function App() {
   const keyboardIndex = playingIndex ?? selectedIndex
   const audibleNotes = playbackState !== 'stopped' && playingMidiNotes
     ? playingMidiNotes
-    : (voicings[keyboardIndex] ?? []).map(note => note + ((progression[keyboardIndex]?.octave ?? 3) - 3) * 12)
+    : (voicings[keyboardIndex] ?? []).filter(note => progression[keyboardIndex]?.notes.includes(note % 12)).map(note => note + ((progression[keyboardIndex]?.octave ?? 3) - 3) * 12)
   const copy = async () => {
     await navigator.clipboard.writeText(progression.map(chord => chord.symbol).join('  →  '))
     setCopied(true); window.setTimeout(() => setCopied(false), 1800)
@@ -372,16 +376,16 @@ function App() {
         <div className="result-top"><div className="panel-heading result-heading"><span className="section-index">02</span><div><h2>コード進行を編集</h2><p><span className="key-badge">{settings.key} MAJOR</span><span className="meta-separator">·</span>{progression.length} chords</p></div></div><button className="icon-button" onClick={copy} aria-label="コード進行をコピー"><Icon name="copy" /><span>{copied ? 'COPIED' : 'COPY'}</span></button></div>
         <div className="result-rule"><span>YOUR PROGRESSION</span><span>#{String(generated).padStart(3, '0')}</span></div>
         <div className="transpose-toolbar"><div><span className="transpose-label">KEY TRANSPOSE</span><span className="transpose-from">{settings.key} →</span><select aria-label="移調先のキー" value={transposeKey} onChange={event => setTransposeKey(event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><button type="button" onClick={transposeToSelectedKey}>このキーに移調</button></div><small>ディグリーネームを保って進行全体を移調</small></div>
-        <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button type="button" onClick={undo} disabled={!historyRef.current.length} title="元に戻す">↶ 戻る</button><button type="button" onClick={redo} disabled={!redoRef.current.length} title="やり直す">↷ 進む</button><button type="button" onClick={resetProgression}>進行リセット</button><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button><button onClick={() => moveChord(-1)} disabled={selectedIndex === 0} aria-label="コードを前へ移動" title="前へ移動">↑</button><button onClick={() => moveChord(1)} disabled={selectedIndex === progression.length - 1} aria-label="コードを後ろへ移動" title="後ろへ移動">↓</button></div></div>
+        <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button type="button" onClick={undo} disabled={!historyRef.current.length} title="元に戻す" aria-label="戻る">↶</button><button type="button" onClick={redo} disabled={!redoRef.current.length} title="やり直す" aria-label="進む">↷</button><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button><button onClick={() => moveChord(-1)} disabled={selectedIndex === 0} aria-label="コードを前へ移動" title="前へ移動">↑</button><button onClick={() => moveChord(1)} disabled={selectedIndex === progression.length - 1} aria-label="コードを後ろへ移動" title="後ろへ移動">↓</button></div></div>
         <div className="transport"><div className="transport-buttons"><button className={`transport-button play-button ${playbackState === 'playing' ? 'is-playing' : ''}`} onClick={play} disabled={playbackState === 'playing'} aria-label={playbackState === 'paused' ? '再生を再開' : '再生'}>▶<span>{playbackState === 'paused' ? '再開' : '再生'}</span></button><button className="transport-button" onClick={pause} disabled={playbackState !== 'playing'} aria-label="一時停止">Ⅱ<span>一時停止</span></button><button className="transport-button" onClick={stop} disabled={playbackState === 'stopped'} aria-label="停止">■<span>停止</span></button><button type="button" className={`transport-button loop-button ${loopEnabled ? 'loop-active' : ''}`} aria-pressed={loopEnabled} onClick={() => changeLoop(!loopEnabled)}>↻<span>ループ</span></button></div><label className="bpm-control"><span className="bpm-caption">TEMPO</span><input aria-label={`BPM ${bpm}`} type="range" min="40" max="200" value={bpm} style={{ '--bpm-progress': `${((bpm - 40) / 160) * 100}%` } as React.CSSProperties} onChange={event => changeBpm(Number(event.target.value))} /><output>{bpm}<small> BPM</small></output></label><label className="sound-control"><span>音色</span><select value={soundPreset} onChange={event => changeSound(event.target.value as SoundPreset)}><option value="sine">正弦波</option><option value="triangle">三角波</option><option value="piano">サンプリングピアノ</option><option value="bass">ベース風</option></select></label></div>
         {playbackError && <p className="playback-error" role="alert">音声を開始できませんでした。ブラウザの音声設定をご確認ください。</p>}
-        <PianoKeyboard chordName={progression[keyboardIndex]?.symbol ?? ''} notes={audibleNotes} />
+        <PianoKeyboard chordName={progression[keyboardIndex]?.symbol ?? ''} notes={audibleNotes} onNoteClick={midi => void previewMidiNote(midi)} />
         <div className={`chord-grid count-${progression.length}`}>{progression.map((chord, index) => <div className={`chord-card ${playingIndex === index ? 'is-current' : ''} ${selectedIndex === index ? 'is-selected' : ''} ${editingIndex === index ? 'has-editor' : ''} ${draggingIndex === index ? 'is-dragging' : ''} ${dropIndex === index ? 'is-drop-target' : ''}`} key={`${generated}-${index}`} style={{ animationDelay: `${index * 45}ms` }} onDragOver={event => { event.preventDefault(); setDropIndex(index) }} onDrop={event => { event.preventDefault(); const from = Number(event.dataTransfer.getData('text/plain')); reorderChords(from, index); setDraggingIndex(null); setDropIndex(null) }}>
           <button type="button" className="chord-card-select" draggable onDragStart={event => { event.dataTransfer.setData('text/plain', String(index)); event.dataTransfer.effectAllowed = 'move'; setDraggingIndex(index) }} onDragEnd={() => { setDraggingIndex(null); setDropIndex(null) }} aria-label={`${index + 1}小節目、ドラッグで並べ替え`} aria-current={playingIndex === index ? 'true' : undefined} aria-pressed={selectedIndex === index} onClick={() => { setSelectedIndex(index); setEditingIndex(null) }}><span className="card-top"><span className="card-number">{String(index + 1).padStart(2, '0')}</span><span className={`role-dot role-${chord.role.toLowerCase()}`} /></span><span className="chord-name">{chord.symbol}</span><span className="roman">{chord.roman}</span><span className="card-bottom"><span className={`role-label role-text-${chord.role.toLowerCase()}`}>{roleLabels[chord.role]}</span><span className="card-arrow">{index < progression.length - 1 ? '↗' : '○'}</span></span></button>
           <button type="button" className="chord-preview-trigger" aria-label={`${chord.symbol}を試聴`} title="このコードを試聴" onClick={() => void previewChord(index)}>▶</button>
           <button type="button" className="chord-edit-trigger" aria-label={`${index + 1}小節目のコードを編集`} aria-expanded={editingIndex === index} onClick={() => { setSelectedIndex(index); setEditingIndex(editingIndex === index ? null : index) }}>✎ 編集</button>
           <button type="button" className="chord-delete-trigger" aria-label={`${index + 1}小節目のコードを削除`} title="このコードを削除" disabled={progression.length <= 1} onClick={() => removeChord(index)}>削除</button>
-          {editingIndex === index && <ChordOptionsPopover keyName={settings.key} root={customRoot} modifiers={customModifiers} inversion={customInversion} slashBass={customSlashBass} octave={chord.octave ?? 3} duration={chord.duration ?? '4n'} onOctaveChange={octave => editProgression(progression.map((item, i) => i === index ? { ...item, octave } : item), selectedIndex)} onDurationChange={duration => editProgression(progression.map((item, i) => i === index ? { ...item, duration } : item), selectedIndex)}
+          {editingIndex === index && <ChordOptionsPopover keyName={settings.key} root={customRoot} modifiers={customModifiers} inversion={customInversion} slashBass={customSlashBass} octave={chord.octave ?? 3} duration={chord.duration ?? '4n'} notes={chord.notes} onNotesChange={notes => editProgression(progression.map((item, i) => i === index ? { ...item, notes } : item), selectedIndex)} onOctaveChange={octave => editProgression(progression.map((item, i) => i === index ? { ...item, octave } : item), selectedIndex)} onDurationChange={duration => editProgression(progression.map((item, i) => i === index ? { ...item, duration } : item), selectedIndex)}
             onRootChange={root => applyCustomChordValues(root, customModifiers, customInversion, customSlashBass)}
             onModifiersChange={modifiers => applyCustomChordValues(customRoot, modifiers, customInversion, customSlashBass)}
             onInversionChange={inversion => applyCustomChordValues(customRoot, customModifiers, inversion, undefined)}
