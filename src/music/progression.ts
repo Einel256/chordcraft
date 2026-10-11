@@ -1,16 +1,16 @@
 export const KEYS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'] as const
 export const CHORD_ROOTS = KEYS
 export const CHORD_MODIFIERS = [
-  { value: 'M', label: 'M', description: '長7度' }, { value: 'm', label: 'm', description: '短3度' },
-  { value: '6', label: '6', description: '6度' }, { value: '7', label: '7', description: '短7度' },
+  { value: 'M', label: 'Major', description: '長7度' }, { value: 'm', label: 'm', description: '短3度' },
+  { value: '6', label: '6', description: '6度' }, { value: '7', label: '7', description: '短7度' }, { value: '9', label: '9', description: '9度' }, { value: '11', label: '11', description: '11度' }, { value: '13', label: '13', description: '13度' }, { value: 'b5', label: '♭5', description: '減5度' },
   { value: 'dim', label: 'dim', description: '減5度' }, { value: 'aug', label: 'aug', description: '増5度' },
   { value: 'sus2', label: 'sus2', description: '2度に置換' }, { value: 'sus4', label: 'sus4', description: '4度に置換' },
   { value: 'add9', label: 'add9', description: '9度を追加' }, { value: 'add11', label: 'add11', description: '11度を追加' }, { value: 'add13', label: 'add13', description: '13度を追加' },
 ] as const
-export type ChordModifier = typeof CHORD_MODIFIERS[number]['value']
+export type ChordModifier = typeof CHORD_MODIFIERS[number]['value'] | 'add9' | 'add11' | 'add13'
 export type KeyName = typeof KEYS[number]
-export type Settings = { key: KeyName; count: 4 | 8 | 16; naturalness: number; complexity: number; surprise: number }
-export type Chord = { symbol: string; roman: string; role: 'Tonic' | 'Subdominant' | 'Dominant' | 'Color'; pitch: number; notes: number[]; bass?: number; inversion?: number }
+export type Settings = { key: KeyName; count: 4 | 8 | 16 | 32 | 64; naturalness: number; complexity: number; surprise: number }
+export type Chord = { symbol: string; roman: string; role: 'Tonic' | 'Subdominant' | 'Dominant' | 'Color'; pitch: number; notes: number[]; bass?: number; inversion?: number; octave?: 3 | 4 | 5; duration?: '4n' | '8n' }
 
 const names = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']
 const pitchClassesByName: Record<string, number> = {
@@ -121,19 +121,23 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const has = (modifier: ChordModifier) => modifiers.includes(modifier)
   const minor = has('m')
   const diminished = has('dim')
+  const flatFive = has('b5')
   const augmented = has('aug')
   const sus2 = has('sus2')
   const sus4 = has('sus4')
   const majorQuality = !minor && !diminished
   const rootRoman = rootsBySemitone[rootInterval]
   const numeral = majorQuality ? rootRoman : rootRoman.replace(/[IV]+$/, value => value.toLowerCase())
-  const intervals = diminished ? [0, 3, 6] : augmented ? [0, 4, 8] : sus2 ? [0, 2, 7] : sus4 ? [0, 5, 7] : minor ? [0, 3, 7] : [0, 4, 7]
+  const intervals = diminished ? [0, 3, 6] : augmented ? [0, 4, 8] : sus2 ? [0, 2, 7] : sus4 ? [0, 5, 7] : minor ? [0, 3, flatFive ? 6 : 7] : [0, 4, flatFive ? 6 : 7]
   if (has('M')) intervals.push(11)
   else if (has('7')) intervals.push(diminished ? 9 : 10)
   if (has('6')) intervals.push(9)
   if (has('add9')) intervals.push(14)
   if (has('add11')) intervals.push(17)
   if (has('add13')) intervals.push(21)
+  if (has('9')) intervals.push(14)
+  if (has('11')) intervals.push(17)
+  if (has('13')) intervals.push(21)
   const baseSymbol = diminished ? 'dim' : augmented ? 'aug' : sus2 ? 'sus2' : sus4 ? 'sus4' : minor ? 'm' : ''
   let seventhSymbol = ''
   let seventhRoman = ''
@@ -141,6 +145,7 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   else if (has('7')) { seventhSymbol = diminished ? 'dim7' : sus2 || sus4 ? `7${baseSymbol}` : `${baseSymbol}7`; seventhRoman = diminished ? '°⁷' : '⁷' }
   const addSixthSymbol = has('6') ? (has('M') || has('7') ? '(add6)' : '6') : ''
   const extensionSymbol = (['add9', 'add11', 'add13'] as const).filter(option => has(option)).join('')
+  const addedExtensions = [9, 11, 13].filter(value => has(String(value) as ChordModifier)).join('')
   const romanSuffix = `${diminished && !seventhRoman.includes('°') ? '°' : ''}${seventhRoman}${has('6') && !has('M') && !has('7') ? '⁶' : ''}${has('add9') ? 'add9' : ''}${has('add11') ? 'add11' : ''}${has('add13') ? 'add13' : ''}`
   const degree = scale.indexOf(rootInterval)
   const role: Chord['role'] = degree < 0 ? 'Color' : degree === 0 || degree === 2 || degree === 5 ? 'Tonic' : degree === 1 || degree === 3 ? 'Subdominant' : 'Dominant'
@@ -149,7 +154,8 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const inversion = Math.max(0, Math.min(voicing.inversion ?? 0, notes.length - 1))
   const bass = voicing.slashBass ?? (inversion > 0 ? notes[inversion] : undefined)
   const slash = bass === undefined || bass === pitch ? '' : `/${names[bass]}`
-  return { symbol: `${rootName}${seventhSymbol || baseSymbol}${addSixthSymbol}${extensionSymbol}${slash}`, roman, role, pitch, notes, bass, inversion }
+  const suffix = `${seventhSymbol || baseSymbol}${flatFive && !diminished ? '♭5' : ''}${addSixthSymbol}${addedExtensions}${extensionSymbol}`
+  return { symbol: `${rootName}${suffix}${slash}`, roman, role, pitch, notes, bass, inversion }
 }
 
 function weightedPick<T extends { weight: number }>(items: T[]): T {

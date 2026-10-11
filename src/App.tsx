@@ -97,10 +97,14 @@ function modifiersFromSymbol(symbol: string): ChordModifier[] {
   else if (suffix.includes('sus2')) modifiers.push('sus2')
   else if (suffix.includes('sus4')) modifiers.push('sus4')
   else if (/^m(?!aj)/.test(suffix)) modifiers.push('m')
+  if (/b5|♭5/.test(suffix)) modifiers.push('b5')
   if (suffix.includes('mM7')) modifiers.push('M')
   else if (suffix.includes('maj7')) modifiers.push('M')
   else if (suffix.includes('dim7') || suffix.includes('m7') || suffix.includes('aug7') || /sus[24]7/.test(suffix) || /^7/.test(suffix)) modifiers.push('7')
   if (suffix === '6' || suffix.endsWith('m6') || suffix.includes('add6')) modifiers.push('6')
+  if (/^(?:m|maj)?9/.test(suffix)) modifiers.push('9')
+  if (/^(?:m|maj)?11/.test(suffix)) modifiers.push('11')
+  if (/^(?:m|maj)?13/.test(suffix)) modifiers.push('13')
   if (suffix === '9' || suffix === '11' || suffix === '13') modifiers.push('7')
   if (['m9', 'm11', 'm13'].includes(suffix)) modifiers.push('7')
   if (/^(?:maj|m)?(?:9|11|13)$/.test(suffix) && suffix.startsWith('maj')) modifiers.push('M')
@@ -117,8 +121,10 @@ function App() {
   const [generated, setGenerated] = useState(1)
   const [copied, setCopied] = useState(false)
   const [bpm, setBpm] = useState(96)
-  const [rootOctave, setRootOctave] = useState(3)
-  const [chordDuration, setChordDuration] = useState<'4n' | '8n'>('4n')
+  const [rootOctave] = useState(3)
+  const [chordDuration] = useState<'4n' | '8n'>('4n')
+  const historyRef = useRef<Chord[][]>([])
+  const redoRef = useRef<Chord[][]>([])
   const [transposeKey, setTransposeKey] = useState<KeyName>(initial.key)
   const [progressionInput, setProgressionInput] = useState('')
   const [progressionInputError, setProgressionInputError] = useState('')
@@ -179,10 +185,10 @@ function App() {
     const input = progressionInput.trim()
     const tokens = /^[1-7]{1,16}$/.test(input) ? [...input] : input.split(/\s*(?:→|➜|->|,|;|\||\n)\s*|\s+/).filter(Boolean)
     if (!tokens.length) { setProgressionInputError('コード進行を入力してください'); return }
-    if (tokens.length > 16) { setProgressionInputError('一度に配置できるコードは16個までです'); return }
+    if (tokens.length + progression.length > 64) { setProgressionInputError('コード進行は最大64個です'); return }
     try {
       const next = tokens.map(token => /^[1-7]$/.test(token) ? chordFromDegree(Number(token), settings.key) : chordFromInput(token, settings.key))
-      editProgression(next, 0)
+      editProgression([...progression, ...next], progression.length)
       setEditingIndex(null)
       setProgressionInputError('')
     } catch {
@@ -190,6 +196,9 @@ function App() {
     }
   }
   const editProgression = (next: Chord[], nextSelected: number, nextPlayingIndex?: number) => {
+    if (next.length > 64) return
+    historyRef.current = [...historyRef.current.slice(-99), progression]
+    redoRef.current = []
     if (playbackState !== 'stopped') {
       playbackRef.current?.updateProgression(next.map(chord => chord.symbol), nextPlayingIndex)
       if (nextPlayingIndex !== undefined) setPlayingIndex(nextPlayingIndex)
@@ -202,10 +211,11 @@ function App() {
   }
   const applyLibraryChord = (chordIndex: number) => {
     const chord = getDiatonicChords(settings.key)[chordIndex]
-    editProgression(progression.map((current, index) => index === selectedIndex ? chord : current), selectedIndex)
+    if (progression.length >= 64) return
+    editProgression([...progression, chord], progression.length)
   }
   const insertLibraryChord = (chordIndex: number) => {
-    if (progression.length >= 16) return
+    if (progression.length >= 64) return
     const next = [...progression]
     next.splice(selectedIndex + 1, 0, getDiatonicChords(settings.key)[chordIndex])
     editProgression(next, selectedIndex + 1)
@@ -219,7 +229,7 @@ function App() {
     editProgression(progression.map((current, index) => index === selectedIndex ? chord : current), selectedIndex)
   }
   const addChord = () => {
-    if (progression.length >= 16) return
+    if (progression.length >= 64) return
     const next = [...progression, getDiatonicChords(settings.key)[0]]
     editProgression(next, next.length - 1)
     setEditingIndex(next.length - 1)
@@ -231,6 +241,19 @@ function App() {
     editProgression(next, nextSelected)
     setEditingIndex(null)
   }
+  const undo = () => {
+    const previous = historyRef.current.pop()
+    if (!previous) return
+    redoRef.current.push(progression)
+    setProgression(previous); setSelectedIndex(Math.min(selectedIndex, previous.length - 1)); setCopied(false)
+  }
+  const redo = () => {
+    const next = redoRef.current.pop()
+    if (!next) return
+    historyRef.current.push(progression)
+    setProgression(next); setSelectedIndex(Math.min(selectedIndex, next.length - 1)); setCopied(false)
+  }
+  const resetProgression = () => editProgression(generateProgression(initial), 0)
   const moveChord = (offset: -1 | 1) => {
     const destination = selectedIndex + offset
     if (destination < 0 || destination >= progression.length) return
@@ -249,7 +272,7 @@ function App() {
       await playbackRef.current.start(progression.map(chord => chord.symbol), bpm, {
         onChord: (index, soundingMidi) => { setPlayingIndex(index); setPlayingMidiNotes(soundingMidi) },
         onEnd: () => { setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null) },
-      }, loopEnabled, rootOctave, chordDuration)
+      }, loopEnabled, rootOctave, chordDuration, progression.map(chord => ({ octave: chord.octave, duration: chord.duration })))
     } catch (error) {
       setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null)
       setPlaybackError(error instanceof Error ? error.message : '音声を開始できませんでした')
@@ -258,8 +281,6 @@ function App() {
   const pause = () => { playbackRef.current?.pause(); setPlaybackState('paused') }
   const stop = () => { playbackRef.current?.stop(); setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null) }
   const changeBpm = (value: number) => { setBpm(value); playbackRef.current?.setBpm(value) }
-  const changeRootOctave = (value: number) => { setRootOctave(value); playbackRef.current?.setRootOctave(value) }
-  const changeChordDuration = (value: '4n' | '8n') => { setChordDuration(value); playbackRef.current?.setChordDuration(value) }
   const changeLoop = (enabled: boolean) => { setLoopEnabled(enabled); playbackRef.current?.setLoop(enabled) }
   const previewSymbol = async (symbol: string) => {
     setPlaybackError('')
@@ -271,6 +292,7 @@ function App() {
     }
   }
   const applyPreset = (presetIndex: number) => {
+    if (progression.length >= 64) return
     const preset = progressionPresets[presetIndex]
     const tonic = KEYS.indexOf(settings.key)
     const chords = preset.chords.map(item => {
@@ -283,7 +305,8 @@ function App() {
       const chord = makeCustomChord(settings.key, root, item.modifiers, { slashBass })
       return { ...chord, roman: item.roman ?? chord.roman }
     })
-    editProgression(chords, 0)
+    const additions = chords.slice(0, 64 - progression.length)
+    editProgression([...progression, ...additions], progression.length)
     setEditingIndex(null)
   }
   const applyAutomaticVoicings = () => {
@@ -312,7 +335,7 @@ function App() {
   const keyboardIndex = playingIndex ?? selectedIndex
   const audibleNotes = playbackState !== 'stopped' && playingMidiNotes
     ? playingMidiNotes
-    : (voicings[keyboardIndex] ?? []).map(note => note + (rootOctave - 3) * 12)
+    : (voicings[keyboardIndex] ?? []).map(note => note + ((progression[keyboardIndex]?.octave ?? 3) - 3) * 12)
   const copy = async () => {
     await navigator.clipboard.writeText(progression.map(chord => chord.symbol).join('  →  '))
     setCopied(true); window.setTimeout(() => setCopied(false), 1800)
@@ -333,7 +356,7 @@ function App() {
       <aside className="controls panel">
         <div className="panel-heading"><span className="section-index">01</span><div><h2>進行をデザイン</h2><p>好みの響きを設定してください</p></div></div>
         <div className="control-group key-control"><label htmlFor="key-select">KEY <span>調性</span></label><div className="select-wrap"><select id="key-select" value={settings.key} onChange={event => update('key', event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><span className="select-chevron">⌄</span></div></div>
-        <div className="control-group"><div className="label-row"><label>CHORDS <span>コード数</span></label><span className="choice-hint">BAR COUNT</span></div><div className="segmented">{([4, 8, 16] as const).map(count => <button key={count} className={settings.count === count ? 'segment active' : 'segment'} onClick={() => update('count', count)}>{count}<small> bars</small></button>)}</div></div>
+        <div className="control-group"><div className="label-row"><label>CHORDS <span>コード数</span></label><span className="choice-hint">BAR COUNT</span></div><div className="segmented">{([4, 8, 16, 32, 64] as const).map(count => <button key={count} className={settings.count === count ? 'segment active' : 'segment'} onClick={() => update('count', count)}>{count}<small> bars</small></button>)}</div></div>
         <div className="controls-divider" />
         <div className="sliders-title"><span>CHARACTER</span><span>音楽の個性</span></div>
         <Slider label="自然さ" sub="NATURALNESS" value={settings.naturalness} color="mint" onChange={value => update('naturalness', value)} />
@@ -349,8 +372,8 @@ function App() {
         <div className="result-top"><div className="panel-heading result-heading"><span className="section-index">02</span><div><h2>コード進行を編集</h2><p><span className="key-badge">{settings.key} MAJOR</span><span className="meta-separator">·</span>{progression.length} chords</p></div></div><button className="icon-button" onClick={copy} aria-label="コード進行をコピー"><Icon name="copy" /><span>{copied ? 'COPIED' : 'COPY'}</span></button></div>
         <div className="result-rule"><span>YOUR PROGRESSION</span><span>#{String(generated).padStart(3, '0')}</span></div>
         <div className="transpose-toolbar"><div><span className="transpose-label">KEY TRANSPOSE</span><span className="transpose-from">{settings.key} →</span><select aria-label="移調先のキー" value={transposeKey} onChange={event => setTransposeKey(event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><button type="button" onClick={transposeToSelectedKey}>このキーに移調</button></div><small>ディグリーネームを保って進行全体を移調</small></div>
-        <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button><button onClick={() => moveChord(-1)} disabled={selectedIndex === 0} aria-label="コードを前へ移動" title="前へ移動">↑</button><button onClick={() => moveChord(1)} disabled={selectedIndex === progression.length - 1} aria-label="コードを後ろへ移動" title="後ろへ移動">↓</button></div></div>
-        <div className="transport"><div className="transport-buttons"><button className={`transport-button play-button ${playbackState === 'playing' ? 'is-playing' : ''}`} onClick={play} disabled={playbackState === 'playing'} aria-label={playbackState === 'paused' ? '再生を再開' : '再生'}>▶<span>{playbackState === 'paused' ? '再開' : '再生'}</span></button><button className="transport-button" onClick={pause} disabled={playbackState !== 'playing'} aria-label="一時停止">Ⅱ<span>一時停止</span></button><button className="transport-button" onClick={stop} disabled={playbackState === 'stopped'} aria-label="停止">■<span>停止</span></button><button type="button" className={`transport-button loop-button ${loopEnabled ? 'loop-active' : ''}`} aria-pressed={loopEnabled} onClick={() => changeLoop(!loopEnabled)}>↻<span>ループ</span></button></div><label className="bpm-control"><span className="bpm-caption">TEMPO</span><input aria-label={`BPM ${bpm}`} type="range" min="40" max="200" value={bpm} style={{ '--bpm-progress': `${((bpm - 40) / 160) * 100}%` } as React.CSSProperties} onChange={event => changeBpm(Number(event.target.value))} /><output>{bpm}<small> BPM</small></output></label><label className="sound-control"><span>コード長</span><select aria-label="コードの長さ" value={chordDuration} onChange={event => changeChordDuration(event.target.value as '4n' | '8n')}><option value="4n">四分音符</option><option value="8n">八分音符</option></select></label><label className="sound-control"><span>ルートoct</span><select aria-label="ルート音のオクターブ" value={rootOctave} onChange={event => changeRootOctave(Number(event.target.value))}><option value={3}>C3 基準</option><option value={4}>C4 基準</option><option value={5}>C5 基準</option></select></label><label className="sound-control"><span>音色</span><select value={soundPreset} onChange={event => changeSound(event.target.value as SoundPreset)}><option value="sine">正弦波</option><option value="triangle">三角波</option><option value="piano">サンプリングピアノ</option><option value="bass">ベース風</option></select></label></div>
+        <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button type="button" onClick={undo} disabled={!historyRef.current.length} title="元に戻す">↶ 戻る</button><button type="button" onClick={redo} disabled={!redoRef.current.length} title="やり直す">↷ 進む</button><button type="button" onClick={resetProgression}>進行リセット</button><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button><button onClick={() => moveChord(-1)} disabled={selectedIndex === 0} aria-label="コードを前へ移動" title="前へ移動">↑</button><button onClick={() => moveChord(1)} disabled={selectedIndex === progression.length - 1} aria-label="コードを後ろへ移動" title="後ろへ移動">↓</button></div></div>
+        <div className="transport"><div className="transport-buttons"><button className={`transport-button play-button ${playbackState === 'playing' ? 'is-playing' : ''}`} onClick={play} disabled={playbackState === 'playing'} aria-label={playbackState === 'paused' ? '再生を再開' : '再生'}>▶<span>{playbackState === 'paused' ? '再開' : '再生'}</span></button><button className="transport-button" onClick={pause} disabled={playbackState !== 'playing'} aria-label="一時停止">Ⅱ<span>一時停止</span></button><button className="transport-button" onClick={stop} disabled={playbackState === 'stopped'} aria-label="停止">■<span>停止</span></button><button type="button" className={`transport-button loop-button ${loopEnabled ? 'loop-active' : ''}`} aria-pressed={loopEnabled} onClick={() => changeLoop(!loopEnabled)}>↻<span>ループ</span></button></div><label className="bpm-control"><span className="bpm-caption">TEMPO</span><input aria-label={`BPM ${bpm}`} type="range" min="40" max="200" value={bpm} style={{ '--bpm-progress': `${((bpm - 40) / 160) * 100}%` } as React.CSSProperties} onChange={event => changeBpm(Number(event.target.value))} /><output>{bpm}<small> BPM</small></output></label><label className="sound-control"><span>音色</span><select value={soundPreset} onChange={event => changeSound(event.target.value as SoundPreset)}><option value="sine">正弦波</option><option value="triangle">三角波</option><option value="piano">サンプリングピアノ</option><option value="bass">ベース風</option></select></label></div>
         {playbackError && <p className="playback-error" role="alert">音声を開始できませんでした。ブラウザの音声設定をご確認ください。</p>}
         <PianoKeyboard chordName={progression[keyboardIndex]?.symbol ?? ''} notes={audibleNotes} />
         <div className={`chord-grid count-${progression.length}`}>{progression.map((chord, index) => <div className={`chord-card ${playingIndex === index ? 'is-current' : ''} ${selectedIndex === index ? 'is-selected' : ''} ${editingIndex === index ? 'has-editor' : ''} ${draggingIndex === index ? 'is-dragging' : ''} ${dropIndex === index ? 'is-drop-target' : ''}`} key={`${generated}-${index}`} style={{ animationDelay: `${index * 45}ms` }} onDragOver={event => { event.preventDefault(); setDropIndex(index) }} onDrop={event => { event.preventDefault(); const from = Number(event.dataTransfer.getData('text/plain')); reorderChords(from, index); setDraggingIndex(null); setDropIndex(null) }}>
@@ -358,14 +381,14 @@ function App() {
           <button type="button" className="chord-preview-trigger" aria-label={`${chord.symbol}を試聴`} title="このコードを試聴" onClick={() => void previewChord(index)}>▶</button>
           <button type="button" className="chord-edit-trigger" aria-label={`${index + 1}小節目のコードを編集`} aria-expanded={editingIndex === index} onClick={() => { setSelectedIndex(index); setEditingIndex(editingIndex === index ? null : index) }}>✎ 編集</button>
           <button type="button" className="chord-delete-trigger" aria-label={`${index + 1}小節目のコードを削除`} title="このコードを削除" disabled={progression.length <= 1} onClick={() => removeChord(index)}>削除</button>
-          {editingIndex === index && <ChordOptionsPopover keyName={settings.key} root={customRoot} modifiers={customModifiers} inversion={customInversion} slashBass={customSlashBass}
+          {editingIndex === index && <ChordOptionsPopover keyName={settings.key} root={customRoot} modifiers={customModifiers} inversion={customInversion} slashBass={customSlashBass} octave={chord.octave ?? 3} duration={chord.duration ?? '4n'} onOctaveChange={octave => editProgression(progression.map((item, i) => i === index ? { ...item, octave } : item), selectedIndex)} onDurationChange={duration => editProgression(progression.map((item, i) => i === index ? { ...item, duration } : item), selectedIndex)}
             onRootChange={root => applyCustomChordValues(root, customModifiers, customInversion, customSlashBass)}
             onModifiersChange={modifiers => applyCustomChordValues(customRoot, modifiers, customInversion, customSlashBass)}
             onInversionChange={inversion => applyCustomChordValues(customRoot, customModifiers, inversion, undefined)}
             onSlashBassChange={bass => applyCustomChordValues(customRoot, customModifiers, customInversion, bass)}
             onClose={() => setEditingIndex(null)} />}
-        </div>)}{progression.length < 16 && <button type="button" className="chord-add-card" onClick={addChord}><span>＋</span><strong>コード追加</strong><small>次の小節に追加</small></button>}</div>
-        <div className="progression-import"><div><strong>コード進行を入力</strong><small>矢印・空白・カンマ区切り、コード名・ディグリー・数字列に対応します。</small></div><textarea aria-label="配置するコード進行" value={progressionInput} onChange={event => setProgressionInput(event.target.value)} placeholder="Gsus2/D → Asus4/E → Bm7/F♯  または  4361" rows={2} /><button type="button" onClick={importProgression}>入力した進行を配置</button>{progressionInputError && <p role="alert">{progressionInputError}</p>}</div>
+        </div>)}{progression.length < 64 && <button type="button" className="chord-add-card" onClick={addChord}><span>＋</span><strong>コード追加</strong><small>次の小節に追加</small></button>}</div>
+        <div className="progression-import"><div><strong>コード進行を追加</strong><small>矢印・空白・カンマ区切り、コード名・ディグリー・数字列に対応します。</small></div><textarea aria-label="配置するコード進行" value={progressionInput} onChange={event => setProgressionInput(event.target.value)} placeholder="Gsus2/D → Asus4/E → Bm7/F♯  または  4361" rows={2} /><button type="button" onClick={importProgression}>コードを入力して追加</button>{progressionInputError && <p role="alert">{progressionInputError}</p>}</div>
         <div className="result-bottom"><div className="legend"><span><i className="legend-dot tonic" />トニック</span><span><i className="legend-dot predominant" />サブドミナント</span><span><i className="legend-dot dominant" />ドミナント</span><span><i className="legend-dot color" />カラー</span></div><span className="progression-count">{String(progression.length).padStart(2, '0')} CHORDS <span>—</span> {settings.key} MAJOR</span></div>
         <div className="inspiration"><span className="inspiration-mark">“</span><p>理論は地図、音楽は旅。<br /><span>心に響く進行を見つけたら、そこから始めよう。</span></p><span className="inspiration-spark">✳</span></div>
       </section>

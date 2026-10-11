@@ -1,12 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { CHORD_MODIFIERS, CHORD_ROOTS, makeCustomChord, type ChordModifier, type KeyName } from '../music/progression'
 
-export default function ChordOptionsPopover({ keyName, root, modifiers, inversion, slashBass, onRootChange, onModifiersChange, onInversionChange, onSlashBassChange, onClose }: {
+export default function ChordOptionsPopover({ keyName, root, modifiers, inversion, slashBass, octave, duration, onOctaveChange, onDurationChange, onRootChange, onModifiersChange, onInversionChange, onSlashBassChange, onClose }: {
   keyName: KeyName
   root: KeyName
   modifiers: ChordModifier[]
   inversion: number
   slashBass: number | undefined
+  octave: number
+  duration: '4n' | '8n'
+  onOctaveChange: (value: 3 | 4 | 5) => void
+  onDurationChange: (value: '4n' | '8n') => void
   onRootChange: (root: KeyName) => void
   onModifiersChange: (modifiers: ChordModifier[]) => void
   onInversionChange: (inversion: number) => void
@@ -39,6 +43,8 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
   return <div ref={editorRef} className="inline-chord-editor" role="group" aria-label="コードオプション">
     <div className="inline-editor-heading"><span>コードを編集</span><button type="button" onClick={onClose} aria-label="編集を閉じる">×</button></div>
     <label>ルート音<select value={root} onChange={event => onRootChange(event.target.value as KeyName)}>{CHORD_ROOTS.map(note => <option value={note} key={note}>{note}</option>)}</select></label>
+    <label>基準音<select value={octave} onChange={event => onOctaveChange(Number(event.target.value) as 3 | 4 | 5)}><option value={3}>C3</option><option value={4}>C4</option><option value={5}>C5</option></select></label>
+    <label>音価<select value={duration} onChange={event => onDurationChange(event.target.value as '4n' | '8n')}><option value="4n">四分音符</option><option value="8n">八分音符</option></select></label>
     <label>転回形<select value={inversion} onChange={event => onInversionChange(Number(event.target.value))}>
       {toneNames.map((note, index) => <option value={index} key={`${index}-${note}`}>{`${index === 0 ? '基本形' : `第${index}転回形`} · ${note}ベース`}</option>)}
     </select></label>

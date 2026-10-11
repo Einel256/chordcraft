@@ -22,6 +22,7 @@ export class ChordPlayback {
   private octaveShift = 0
   private tickCount = 0
   private chordDuration: '4n' | '8n' = '4n'
+  private chordSettings: { octave?: number; duration?: '4n' | '8n' }[] = []
 
   setBpm(bpm: number) {
     Tone.Transport.bpm.value = bpm
@@ -38,7 +39,7 @@ export class ChordPlayback {
     this.filter = null
   }
 
-  async start(symbols: string[], bpm: number, callbacks: PlaybackCallbacks, loop = false, rootOctave = 3, chordDuration: '4n' | '8n' = '4n') {
+  async start(symbols: string[], bpm: number, callbacks: PlaybackCallbacks, loop = false, rootOctave = 3, chordDuration: '4n' | '8n' = '4n', chordSettings: { octave?: number; duration?: '4n' | '8n' }[] = []) {
     await Tone.start()
     this.stop()
     await this.ensureSynth()
@@ -50,13 +51,15 @@ export class ChordPlayback {
     this.nextIndex = 0
     this.tickCount = 0
     this.chordDuration = chordDuration
+    this.chordSettings = chordSettings
     this.octaveShift = (rootOctave - 3) * 12
     this.active = true
     Tone.Transport.bpm.value = bpm
     // Tick on eighth-note boundaries; quarter-note chords play on every other tick.
     this.repeatEvent = Tone.Transport.scheduleRepeat(time => {
       if (!this.active) return
-      const shouldPlay = this.chordDuration === '8n' || this.tickCount % 2 === 0
+      const duration = this.chordSettings[this.currentIndex]?.duration ?? this.chordDuration
+      const shouldPlay = this.currentIndex < 0 || duration === '8n' || this.tickCount % 2 === 0
       this.tickCount += 1
       if (!shouldPlay) return
       if (this.nextIndex >= this.symbols.length) {
@@ -198,11 +201,13 @@ export class ChordPlayback {
     if (this.soundPreset === 'piano') this.sampler?.triggerAttack(notes, time, 0.24)
     else this.synth?.triggerAttack(notes, time, 0.24)
     this.currentIndex = index
+    this.tickCount = 0
     this.callbacks?.onChord(index, soundingMidi)
   }
 
   private getSoundingMidi(index: number) {
-    return (this.voicings[index] ?? []).map(note => note + this.octaveShift)
+    const shift = this.chordSettings[index]?.octave === undefined ? this.octaveShift : (this.chordSettings[index].octave! - 3) * 12
+    return (this.voicings[index] ?? []).map(note => note + shift)
   }
 
   private releaseAll(time?: number) {
