@@ -3,6 +3,7 @@ import { midiToToneNote, voiceChordProgression } from './chordVoicing'
 
 export type PlaybackCallbacks = { onChord: (index: number, soundingMidi: number[]) => void; onEnd: () => void }
 export type SoundPreset = 'sine' | 'triangle' | 'piano' | 'bass'
+export type PlaybackMode = 'chord' | 'arpeggio'
 
 /** Tone.js transport and synth lifecycle, kept separate from progression generation. */
 export class ChordPlayback {
@@ -39,7 +40,7 @@ export class ChordPlayback {
     this.filter = null
   }
 
-  async start(symbols: string[], bpm: number, callbacks: PlaybackCallbacks, loop = false, rootOctave = 3, chordDuration: '4n' | '8n' = '4n', chordSettings: { octave?: number; duration?: '4n' | '8n'; notes?: number[] }[] = []) {
+  async start(symbols: string[], bpm: number, callbacks: PlaybackCallbacks, loop = false, rootOctave = 3, chordDuration: '4n' | '8n' = '4n', chordSettings: { octave?: number; duration?: '4n' | '8n'; notes?: number[] }[] = [], mode: PlaybackMode = 'chord') {
     await Tone.start()
     this.stop()
     await this.ensureSynth()
@@ -55,6 +56,38 @@ export class ChordPlayback {
     this.octaveShift = (rootOctave - 3) * 12
     this.active = true
     Tone.Transport.bpm.value = bpm
+    if (mode === 'arpeggio') {
+      this.repeatEvent = Tone.Transport.scheduleRepeat(time => {
+        if (!this.active) return
+        const duration = this.chordSettings[this.currentIndex]?.duration ?? this.chordDuration
+        const ticksPerChord = duration === '8n' ? 2 : 4
+        if (this.currentIndex < 0 || this.tickCount >= ticksPerChord) {
+          if (this.nextIndex >= this.symbols.length) {
+            if (!this.loop) {
+              this.releaseAll(time); this.active = false; this.currentIndex = -1
+              this.callbacks?.onEnd(); Tone.Transport.stop(time)
+              if (this.repeatEvent !== null) Tone.Transport.clear(this.repeatEvent)
+              this.repeatEvent = null
+              return
+            }
+            this.nextIndex = 0
+          }
+          this.currentIndex = this.nextIndex++
+          this.tickCount = 0
+        }
+        const soundingMidi = this.getSoundingMidi(this.currentIndex)
+        if (!soundingMidi.length) { this.tickCount += 1; return }
+        const note = soundingMidi[this.tickCount % soundingMidi.length]
+        this.releaseAll(time)
+        const toneNote = midiToToneNote(note)
+        if (this.soundPreset === 'piano') this.sampler?.triggerAttackRelease(toneNote, '16n', time, 0.24)
+        else this.synth?.triggerAttackRelease(toneNote, '16n', time, 0.24)
+        this.callbacks?.onChord(this.currentIndex, [note])
+        this.tickCount += 1
+      }, '16n')
+      Tone.Transport.start()
+      return
+    }
     // Tick on eighth-note boundaries; quarter-note chords play on every other tick.
     this.repeatEvent = Tone.Transport.scheduleRepeat(time => {
       if (!this.active) return

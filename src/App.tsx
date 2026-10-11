@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CHORD_ROOTS, generateProgression, getDiatonicChords, makeCustomChord, KEYS, transposeProgression, type Chord, type ChordModifier, type KeyName, type Settings } from './music/progression'
-import { ChordPlayback, type SoundPreset } from './audio/playback'
+import { ChordPlayback, type PlaybackMode, type SoundPreset } from './audio/playback'
 import ChordLibrary from './components/ChordLibrary'
 import ChordOptionsPopover from './components/ChordOptionsPopover'
 import PianoKeyboard from './components/PianoKeyboard'
@@ -115,6 +115,18 @@ function modifiersFromSymbol(symbol: string): ChordModifier[] {
   return modifiers
 }
 
+function withOmittedNotes(chord: Chord, notes: number[]): Chord {
+  const baseSymbol = chord.baseSymbol ?? chord.symbol.replace(/(?:\(omit[\d,]+\))+/gi, '')
+  const parsed = parseChord(baseSymbol)
+  const degreeFor = (interval: number) => ({ 0: 1, 1: 2, 2: 2, 3: 3, 4: 3, 5: 4, 6: 5, 7: 5, 8: 5, 9: 6, 10: 7, 11: 7, 13: 9, 14: 9, 15: 9, 16: 11, 17: 11, 18: 11, 20: 13, 21: 13 } as Record<number, number>)[interval] ?? interval + 1
+  const omitted = parsed.pitchClasses.filter(pitch => !notes.includes(pitch)).map(pitch => {
+    const interval = parsed.intervals.find(value => (parsed.root + value) % 12 === pitch) ?? (pitch - parsed.root + 12) % 12
+    return degreeFor(interval)
+  })
+  const parts = baseSymbol.match(/^(.*?)(\/[A-G](?:#|b|♯|♭)?)?$/)!
+  return { ...chord, baseSymbol, notes, symbol: `${parts[1]}${omitted.map(degree => `(omit${degree})`).join('')}${parts[2] ?? ''}` }
+}
+
 function App() {
   const [settings, setSettings] = useState<Settings>(initial)
   const [progression, setProgression] = useState<Chord[]>([])
@@ -134,6 +146,8 @@ function App() {
   const [playbackState, setPlaybackState] = useState<'stopped' | 'playing' | 'paused'>('stopped')
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playingMidiNotes, setPlayingMidiNotes] = useState<number[] | null>(null)
+  const [auditionedMidi, setAuditionedMidi] = useState<number | null>(null)
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('chord')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [customRoot, setCustomRoot] = useState<KeyName>('C')
@@ -173,6 +187,7 @@ function App() {
   }
   const previewChord = async (index: number) => {
     setPlaybackError('')
+    setAuditionedMidi(null)
     setSelectedIndex(index)
     if (!playbackRef.current) playbackRef.current = new ChordPlayback()
     try {
@@ -183,6 +198,7 @@ function App() {
     }
   }
   const previewMidiNote = async (midi: number) => {
+    setAuditionedMidi(midi)
     if (!playbackRef.current) playbackRef.current = new ChordPlayback()
     try { await playbackRef.current.previewMidi(midi) } catch (error) { setPlaybackError(error instanceof Error ? error.message : '音を再生できませんでした') }
   }
@@ -263,6 +279,7 @@ function App() {
   const play = async () => {
     if (!progression.length) return
     setPlaybackError('')
+    setAuditionedMidi(null)
     if (playbackState === 'paused') {
       playbackRef.current?.resume(); setPlaybackState('playing'); return
     }
@@ -272,7 +289,7 @@ function App() {
       await playbackRef.current.start(progression.map(chord => chord.symbol), bpm, {
         onChord: (index, soundingMidi) => { setPlayingIndex(index); setPlayingMidiNotes(soundingMidi) },
         onEnd: () => { setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null) },
-      }, loopEnabled, rootOctave, chordDuration, progression.map(chord => ({ octave: chord.octave, duration: chord.duration, notes: chord.notes })))
+      }, loopEnabled, rootOctave, chordDuration, progression.map(chord => ({ octave: chord.octave, duration: chord.duration, notes: chord.notes })), playbackMode)
     } catch (error) {
       setPlaybackState('stopped'); setPlayingIndex(null); setPlayingMidiNotes(null)
       setPlaybackError(error instanceof Error ? error.message : '音声を開始できませんでした')
@@ -335,6 +352,7 @@ function App() {
   const keyboardIndex = playingIndex ?? selectedIndex
   const audibleNotes = playbackState !== 'stopped' && playingMidiNotes
     ? playingMidiNotes
+    : auditionedMidi !== null ? [auditionedMidi]
     : (voicings[keyboardIndex] ?? []).filter(note => progression[keyboardIndex]?.notes.includes(note % 12)).map(note => note + ((progression[keyboardIndex]?.octave ?? 3) - 3) * 12)
   const copy = async () => {
     await navigator.clipboard.writeText(progression.map(chord => chord.symbol).join('  →  '))
@@ -360,15 +378,15 @@ function App() {
         <details className="editor-generation-settings"><summary>調整</summary><div className="editor-generation-grid"><label>KEY <select value={settings.key} onChange={event => update('key', event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select></label><label>コード数 <select value={settings.count} onChange={event => update('count', Number(event.target.value) as Settings['count'])}>{[4, 8, 16, 32, 64].map(count => <option key={count} value={count}>{count}コード</option>)}</select></label><Slider label="自然さ" sub="NATURALNESS" value={settings.naturalness} color="mint" onChange={value => update('naturalness', value)} /><Slider label="複雑さ" sub="COMPLEXITY" value={settings.complexity} color="violet" onChange={value => update('complexity', value)} /><Slider label="意外性" sub="SURPRISE" value={settings.surprise} color="amber" onChange={value => update('surprise', value)} /></div></details>
         <div className="transpose-toolbar"><div><span className="transpose-label">KEY TRANSPOSE</span><span className="transpose-from">{settings.key} →</span><select aria-label="移調先のキー" value={transposeKey} onChange={event => setTransposeKey(event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><button type="button" onClick={transposeToSelectedKey}>このキーに移調</button></div><small>ディグリーネームを保って進行全体を移調</small></div>
         <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button type="button" onClick={undo} disabled={!historyRef.current.length} title="元に戻す" aria-label="戻る">↶</button><button type="button" onClick={redo} disabled={!redoRef.current.length} title="やり直す" aria-label="進む">↷</button><button type="button" onClick={initializeProgression} className="initialize-button" title="コードをすべて消去">初期化</button><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button><button onClick={() => moveChord(-1)} disabled={selectedIndex === 0 || !progression.length} aria-label="コードを前へ移動" title="前へ移動">↑</button><button onClick={() => moveChord(1)} disabled={!progression.length || selectedIndex >= progression.length - 1} aria-label="コードを後ろへ移動" title="後ろへ移動">↓</button></div></div>
-        <div className="transport"><div className="transport-buttons"><button className={`transport-button play-button ${playbackState === 'playing' ? 'is-playing' : ''}`} onClick={play} disabled={playbackState === 'playing' || !progression.length} aria-label={playbackState === 'paused' ? '再生を再開' : '再生'}>▶<span>{playbackState === 'paused' ? '再開' : '再生'}</span></button><button className="transport-button" onClick={pause} disabled={playbackState !== 'playing'} aria-label="一時停止">Ⅱ<span>一時停止</span></button><button className="transport-button" onClick={stop} disabled={playbackState === 'stopped'} aria-label="停止">■<span>停止</span></button><button type="button" className={`transport-button loop-button ${loopEnabled ? 'loop-active' : ''}`} aria-pressed={loopEnabled} onClick={() => changeLoop(!loopEnabled)}>↻<span>ループ</span></button></div><label className="bpm-control"><span className="bpm-caption">TEMPO</span><input aria-label={`BPM ${bpm}`} type="range" min="40" max="200" value={bpm} style={{ '--bpm-progress': `${((bpm - 40) / 160) * 100}%` } as React.CSSProperties} onChange={event => changeBpm(Number(event.target.value))} /><output>{bpm}<small> BPM</small></output></label><label className="sound-control"><span>音色</span><select value={soundPreset} onChange={event => changeSound(event.target.value as SoundPreset)}><option value="sine">正弦波</option><option value="triangle">三角波</option><option value="piano">サンプリングピアノ</option><option value="bass">ベース風</option></select></label></div>
+        <div className="transport"><div className="transport-buttons"><button className={`transport-button play-button ${playbackState === 'playing' ? 'is-playing' : ''}`} onClick={play} disabled={playbackState === 'playing' || !progression.length} aria-label={playbackState === 'paused' ? '再生を再開' : '再生'}>▶<span>{playbackState === 'paused' ? '再開' : '再生'}</span></button><button className="transport-button" onClick={pause} disabled={playbackState !== 'playing'} aria-label="一時停止">Ⅱ<span>一時停止</span></button><button className="transport-button" onClick={stop} disabled={playbackState === 'stopped'} aria-label="停止">■<span>停止</span></button><button type="button" className={`transport-button loop-button ${loopEnabled ? 'loop-active' : ''}`} aria-pressed={loopEnabled} onClick={() => changeLoop(!loopEnabled)}>↻<span>ループ</span></button><button type="button" className={`transport-button arp-mode-button ${playbackMode === 'arpeggio' ? 'loop-active' : ''}`} aria-pressed={playbackMode === 'arpeggio'} onClick={() => setPlaybackMode(mode => mode === 'chord' ? 'arpeggio' : 'chord')}>♫<span>アルペジオ</span></button></div><label className="bpm-control"><span className="bpm-caption">TEMPO</span><input aria-label={`BPM ${bpm}`} type="range" min="40" max="200" value={bpm} style={{ '--bpm-progress': `${((bpm - 40) / 160) * 100}%` } as React.CSSProperties} onChange={event => changeBpm(Number(event.target.value))} /><output>{bpm}<small> BPM</small></output></label><label className="sound-control"><span>音色</span><select value={soundPreset} onChange={event => changeSound(event.target.value as SoundPreset)}><option value="sine">正弦波</option><option value="triangle">三角波</option><option value="piano">サンプリングピアノ</option><option value="bass">ベース風</option></select></label></div>
         {playbackError && <p className="playback-error" role="alert">音声を開始できませんでした。ブラウザの音声設定をご確認ください。</p>}
         <PianoKeyboard chordName={progression[keyboardIndex]?.symbol ?? ''} notes={audibleNotes} onNoteClick={midi => void previewMidiNote(midi)} />
         {!progression.length && <p className="progression-empty">コードはまだありません。コードを追加するか、進行を生成してください。</p>}<div className={`chord-grid count-${progression.length}`}>{progression.map((chord, index) => <div className={`chord-card ${playingIndex === index ? 'is-current' : ''} ${selectedIndex === index ? 'is-selected' : ''} ${editingIndex === index ? 'has-editor' : ''} ${draggingIndex === index ? 'is-dragging' : ''} ${dropIndex === index ? 'is-drop-target' : ''}`} key={`${generated}-${index}`} style={{ animationDelay: `${index * 45}ms` }} onDragOver={event => { event.preventDefault(); setDropIndex(index) }} onDrop={event => { event.preventDefault(); const from = Number(event.dataTransfer.getData('text/plain')); reorderChords(from, index); setDraggingIndex(null); setDropIndex(null) }}>
-          <button type="button" className="chord-card-select" draggable onDragStart={event => { event.dataTransfer.setData('text/plain', String(index)); event.dataTransfer.effectAllowed = 'move'; setDraggingIndex(index) }} onDragEnd={() => { setDraggingIndex(null); setDropIndex(null) }} aria-label={`${index + 1}小節目、ドラッグで並べ替え`} aria-current={playingIndex === index ? 'true' : undefined} aria-pressed={selectedIndex === index} onClick={() => { setSelectedIndex(index); setEditingIndex(null) }}><span className="card-top"><span className="card-number">{String(index + 1).padStart(2, '0')}</span><span className={`role-dot role-${chord.role.toLowerCase()}`} /></span><span className="chord-name">{chord.symbol}</span><span className="roman">{chord.roman}</span><span className="card-bottom"><span className={`role-label role-text-${chord.role.toLowerCase()}`}>{roleLabels[chord.role]}</span><span className="card-arrow">{index < progression.length - 1 ? '↗' : '○'}</span></span></button>
+          <button type="button" className="chord-card-select" draggable onDragStart={event => { event.dataTransfer.setData('text/plain', String(index)); event.dataTransfer.effectAllowed = 'move'; setDraggingIndex(index) }} onDragEnd={() => { setDraggingIndex(null); setDropIndex(null) }} aria-label={`${index + 1}小節目、ドラッグで並べ替え`} aria-current={playingIndex === index ? 'true' : undefined} aria-pressed={selectedIndex === index} onClick={() => { setAuditionedMidi(null); setSelectedIndex(index); setEditingIndex(null) }}><span className="card-top"><span className="card-number">{String(index + 1).padStart(2, '0')}</span><span className={`role-dot role-${chord.role.toLowerCase()}`} /></span><span className="chord-name">{chord.symbol}</span><span className="roman">{chord.roman}</span><span className="card-bottom"><span className={`role-label role-text-${chord.role.toLowerCase()}`}>{roleLabels[chord.role]}</span><span className="card-arrow">{index < progression.length - 1 ? '↗' : '○'}</span></span></button>
           <button type="button" className="chord-preview-trigger" aria-label={`${chord.symbol}を試聴`} title="このコードを試聴" onClick={() => void previewChord(index)}>▶</button>
           <button type="button" className="chord-edit-trigger" aria-label={`${index + 1}小節目のコードを編集`} aria-expanded={editingIndex === index} onClick={() => { setSelectedIndex(index); setEditingIndex(editingIndex === index ? null : index) }}>✎ 編集</button>
           <button type="button" className="chord-delete-trigger" aria-label={`${index + 1}小節目のコードを削除`} title="このコードを削除" onClick={() => removeChord(index)}>削除</button>
-          {editingIndex === index && <ChordOptionsPopover keyName={settings.key} root={customRoot} modifiers={customModifiers} inversion={customInversion} slashBass={customSlashBass} octave={chord.octave ?? 3} duration={chord.duration ?? '4n'} notes={chord.notes} allNotes={(() => { try { return parseChord(chord.symbol).pitchClasses } catch { return chord.notes } })()} onNotesChange={notes => editProgression(progression.map((item, i) => i === index ? { ...item, notes } : item), selectedIndex)} onOctaveChange={octave => editProgression(progression.map((item, i) => i === index ? { ...item, octave } : item), selectedIndex)} onDurationChange={duration => editProgression(progression.map((item, i) => i === index ? { ...item, duration } : item), selectedIndex)}
+          {editingIndex === index && <ChordOptionsPopover keyName={settings.key} root={customRoot} modifiers={customModifiers} inversion={customInversion} slashBass={customSlashBass} octave={chord.octave ?? 3} duration={chord.duration ?? '4n'} notes={chord.notes} allNotes={(() => { try { return parseChord(chord.baseSymbol ?? chord.symbol).pitchClasses } catch { return chord.notes } })()} onNotesChange={notes => editProgression(progression.map((item, i) => i === index ? withOmittedNotes(item, notes) : item), selectedIndex)} onOctaveChange={octave => editProgression(progression.map((item, i) => i === index ? { ...item, octave } : item), selectedIndex)} onDurationChange={duration => editProgression(progression.map((item, i) => i === index ? { ...item, duration } : item), selectedIndex)}
             onRootChange={root => applyCustomChordValues(root, customModifiers, customInversion, customSlashBass)}
             onModifiersChange={modifiers => applyCustomChordValues(customRoot, modifiers, customInversion, customSlashBass)}
             onInversionChange={inversion => applyCustomChordValues(customRoot, customModifiers, inversion, undefined)}

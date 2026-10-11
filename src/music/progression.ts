@@ -10,7 +10,7 @@ export const CHORD_MODIFIERS = [
 export type ChordModifier = typeof CHORD_MODIFIERS[number]['value'] | 'add9' | 'add11' | 'add13'
 export type KeyName = typeof KEYS[number]
 export type Settings = { key: KeyName; count: 4 | 8 | 16 | 32 | 64; naturalness: number; complexity: number; surprise: number }
-export type Chord = { symbol: string; roman: string; role: 'Tonic' | 'Subdominant' | 'Dominant' | 'Color'; pitch: number; notes: number[]; bass?: number; inversion?: number; octave?: 3 | 4 | 5; duration?: '4n' | '8n'; modifiers?: ChordModifier[] }
+export type Chord = { symbol: string; roman: string; role: 'Tonic' | 'Subdominant' | 'Dominant' | 'Color'; pitch: number; notes: number[]; bass?: number; inversion?: number; octave?: 3 | 4 | 5; duration?: '4n' | '8n'; modifiers?: ChordModifier[]; baseSymbol?: string }
 
 const names = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']
 const pitchClassesByName: Record<string, number> = {
@@ -155,8 +155,9 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const inversion = Math.max(0, Math.min(voicing.inversion ?? 0, notes.length - 1))
   const bass = voicing.slashBass ?? (inversion > 0 ? notes[inversion] : undefined)
   const slash = bass === undefined || bass === pitch ? '' : `/${names[bass]}`
-  const suffix = `${addedExtensions || seventhSymbol || baseSymbol}${flatFive && !diminished && !minor ? '♭5' : ''}${addSixthSymbol}${extensionSymbol}`
-  return { symbol: `${rootName}${suffix}${slash}`, roman, role, pitch, notes, bass, inversion, modifiers: [...modifiers] }
+  const suffix = `${addedExtensions || seventhSymbol || baseSymbol}${flatFive && !diminished && !minor ? '(♭5)' : ''}${addSixthSymbol}${extensionSymbol}`
+  const symbol = `${rootName}${suffix}${slash}`
+  return { symbol, baseSymbol: symbol, roman, role, pitch, notes, bass, inversion, modifiers: [...modifiers] }
 }
 
 function weightedPick<T extends { weight: number }>(items: T[]): T {

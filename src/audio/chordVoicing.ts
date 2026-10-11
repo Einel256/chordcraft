@@ -7,6 +7,11 @@ const CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', '
 
 export type ParsedChord = { root: number; intervals: number[]; pitchClasses: number[]; bass?: number }
 
+function intervalDegree(interval: number): number {
+  const degrees: Record<number, number> = { 0: 1, 1: 2, 2: 2, 3: 3, 4: 3, 5: 4, 6: 5, 7: 5, 8: 5, 9: 6, 10: 7, 11: 7, 13: 9, 14: 9, 15: 9, 16: 11, 17: 11, 18: 11, 20: 13, 21: 13 }
+  return degrees[interval] ?? interval + 1
+}
+
 function notePitch(note: string): number {
   const normalized = note.replace('♯', '#').replace('♭', 'b')
   const pitch = NOTE_PITCH[normalized]
@@ -27,7 +32,8 @@ export function parseChord(symbol: string): ParsedChord {
   if (!match) throw new Error(`Invalid chord symbol: ${symbol}`)
   const [, rootName, rawQuality, bassName] = match
   const root = notePitch(rootName)
-  const quality = rawQuality.replace(/[()\s]/g, '').replace(/♭/g, 'b').replace(/♯/g, '#')
+  const omitDegrees = [...rawQuality.matchAll(/\(omit([\d,]+)\)/gi)].flatMap(match => match[1].split(',').map(Number))
+  const quality = rawQuality.replace(/\(omit[\d,]+\)/gi, '').replace(/[()\s]/g, '').replace(/♭/g, 'b').replace(/♯/g, '#')
   let intervals: number[]
 
   if (/dim|°/.test(quality)) intervals = /(?:dim7|°7)/.test(quality) ? [0, 3, 6, 9] : [0, 3, 6]
@@ -62,6 +68,7 @@ export function parseChord(symbol: string): ParsedChord {
   if (/b13/.test(quality)) intervals.push(20)
   if (isMinor && /maj7/.test(quality)) intervals = intervals.filter(interval => interval !== 10)
 
+  if (omitDegrees.length) intervals = intervals.filter(interval => !omitDegrees.includes(intervalDegree(interval)))
   return {
     root,
     intervals: [...new Set(intervals)],
