@@ -149,7 +149,7 @@ function App() {
     const chord = progression[selectedIndex]
     if (!chord) return
     setCustomRoot(CHORD_ROOTS[chord.pitch])
-    setCustomModifiers(modifiersFromSymbol(chord.symbol))
+    setCustomModifiers(chord.modifiers ?? modifiersFromSymbol(chord.symbol))
     try {
       const parsed = parseChord(chord.symbol)
       const chordToneInversion = parsed.bass === undefined ? -1 : parsed.pitchClasses.indexOf(parsed.bass)
@@ -379,8 +379,8 @@ function App() {
         <div className="result-bottom"><div className="legend"><span><i className="legend-dot tonic" />トニック</span><span><i className="legend-dot predominant" />サブドミナント</span><span><i className="legend-dot dominant" />ドミナント</span><span><i className="legend-dot color" />カラー</span></div><span className="progression-count">{String(progression.length).padStart(2, '0')} CHORDS <span>—</span> {settings.key} MAJOR</span></div>
         <div className="inspiration"><span className="inspiration-mark">“</span><p>理論は地図、音楽は旅。<br /><span>心に響く進行を見つけたら、そこから始めよう。</span></p><span className="inspiration-spark">✳</span></div>
       </section>
-    <ChordLibrary keyName={settings.key} selectedIndex={selectedIndex} onApply={applyLibraryChord} onPreview={index => void previewSymbol(getDiatonicChords(settings.key)[index].symbol)} />
       </div>
+      <ChordLibrary keyName={settings.key} selectedIndex={selectedIndex} onApply={applyLibraryChord} onPreview={index => void previewSymbol(getDiatonicChords(settings.key)[index].symbol)} />
       <aside className="controls panel">
         <div className="panel-heading"><span className="section-index">03</span><div><h2>進行をデザイン</h2><p>好みの響きを設定してください</p></div></div>
         <div className="control-group key-control"><label htmlFor="key-select">KEY <span>調性</span></label><div className="select-wrap"><select id="key-select" value={settings.key} onChange={event => update('key', event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><span className="select-chevron">⌄</span></div></div>
