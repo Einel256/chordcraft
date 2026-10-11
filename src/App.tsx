@@ -147,6 +147,7 @@ function App() {
   const [playingIndex, setPlayingIndex] = useState<number | null>(null)
   const [playingMidiNotes, setPlayingMidiNotes] = useState<number[] | null>(null)
   const [auditionedMidi, setAuditionedMidi] = useState<number | null>(null)
+  const auditionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('chord')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -158,7 +159,10 @@ function App() {
   const [customSlashBass, setCustomSlashBass] = useState<number | undefined>(undefined)
   const [playbackError, setPlaybackError] = useState('')
   const playbackRef = useRef<ChordPlayback | null>(null)
-  useEffect(() => () => playbackRef.current?.dispose(), [])
+  useEffect(() => () => {
+    playbackRef.current?.dispose()
+    if (auditionTimerRef.current) clearTimeout(auditionTimerRef.current)
+  }, [])
   useEffect(() => {
     const chord = progression[selectedIndex]
     if (!chord) return
@@ -199,6 +203,8 @@ function App() {
   }
   const previewMidiNote = async (midi: number) => {
     setAuditionedMidi(midi)
+    if (auditionTimerRef.current) clearTimeout(auditionTimerRef.current)
+    auditionTimerRef.current = setTimeout(() => setAuditionedMidi(null), 650)
     if (!playbackRef.current) playbackRef.current = new ChordPlayback()
     try { await playbackRef.current.previewMidi(midi) } catch (error) { setPlaybackError(error instanceof Error ? error.message : '音を再生できませんでした') }
   }
@@ -269,13 +275,6 @@ function App() {
     setProgression(next); setSelectedIndex(next.length ? Math.min(selectedIndex, next.length - 1) : 0); setCopied(false)
   }
   const initializeProgression = () => { if (progression.length) editProgression([], 0) }
-  const moveChord = (offset: -1 | 1) => {
-    const destination = selectedIndex + offset
-    if (destination < 0 || destination >= progression.length) return
-    const next = [...progression]
-    ;[next[selectedIndex], next[destination]] = [next[destination], next[selectedIndex]]
-    editProgression(next, destination)
-  }
   const play = async () => {
     if (!progression.length) return
     setPlaybackError('')
@@ -377,7 +376,7 @@ function App() {
         <div className="result-rule"><span>YOUR PROGRESSION</span><span>#{String(generated).padStart(3, '0')}</span></div>
         <details className="editor-generation-settings"><summary>調整</summary><div className="editor-generation-grid"><label>KEY <select value={settings.key} onChange={event => update('key', event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select></label><label>コード数 <select value={settings.count} onChange={event => update('count', Number(event.target.value) as Settings['count'])}>{[4, 8, 16, 32, 64].map(count => <option key={count} value={count}>{count}コード</option>)}</select></label><Slider label="自然さ" sub="NATURALNESS" value={settings.naturalness} color="mint" onChange={value => update('naturalness', value)} /><Slider label="複雑さ" sub="COMPLEXITY" value={settings.complexity} color="violet" onChange={value => update('complexity', value)} /><Slider label="意外性" sub="SURPRISE" value={settings.surprise} color="amber" onChange={value => update('surprise', value)} /></div></details>
         <div className="transpose-toolbar"><div><span className="transpose-label">KEY TRANSPOSE</span><span className="transpose-from">{settings.key} →</span><select aria-label="移調先のキー" value={transposeKey} onChange={event => setTransposeKey(event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><button type="button" onClick={transposeToSelectedKey}>このキーに移調</button></div><small>ディグリーネームを保って進行全体を移調</small></div>
-        <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button type="button" onClick={undo} disabled={!historyRef.current.length} title="元に戻す" aria-label="戻る">↶</button><button type="button" onClick={redo} disabled={!redoRef.current.length} title="やり直す" aria-label="進む">↷</button><button type="button" onClick={initializeProgression} className="initialize-button" title="コードをすべて消去">初期化</button><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button><button onClick={() => moveChord(-1)} disabled={selectedIndex === 0 || !progression.length} aria-label="コードを前へ移動" title="前へ移動">↑</button><button onClick={() => moveChord(1)} disabled={!progression.length || selectedIndex >= progression.length - 1} aria-label="コードを後ろへ移動" title="後ろへ移動">↓</button></div></div>
+        <div className="edit-toolbar"><span><i className="selection-indicator" />小節を選択 · ドラッグで並べ替え</span><div><button type="button" onClick={undo} disabled={!historyRef.current.length} title="元に戻す" aria-label="戻る">↶</button><button type="button" onClick={redo} disabled={!redoRef.current.length} title="やり直す" aria-label="進む">↷</button><button type="button" onClick={initializeProgression} className="initialize-button" title="コードをすべて消去">初期化</button><button className="auto-voicing-button" onClick={applyAutomaticVoicings} title="声部の移動が滑らかになる転回形を全コードに設定">自動ボイシング</button></div></div>
         <div className="transport"><div className="transport-buttons"><button className={`transport-button play-button ${playbackState === 'playing' ? 'is-playing' : ''}`} onClick={play} disabled={playbackState === 'playing' || !progression.length} aria-label={playbackState === 'paused' ? '再生を再開' : '再生'}>▶<span>{playbackState === 'paused' ? '再開' : '再生'}</span></button><button className="transport-button" onClick={pause} disabled={playbackState !== 'playing'} aria-label="一時停止">Ⅱ<span>一時停止</span></button><button className="transport-button" onClick={stop} disabled={playbackState === 'stopped'} aria-label="停止">■<span>停止</span></button><button type="button" className={`transport-button loop-button ${loopEnabled ? 'loop-active' : ''}`} aria-pressed={loopEnabled} onClick={() => changeLoop(!loopEnabled)}>↻<span>ループ</span></button><button type="button" className={`transport-button arp-mode-button ${playbackMode === 'arpeggio' ? 'loop-active' : ''}`} aria-pressed={playbackMode === 'arpeggio'} onClick={() => setPlaybackMode(mode => mode === 'chord' ? 'arpeggio' : 'chord')}>♫<span>アルペジオ</span></button></div><label className="bpm-control"><span className="bpm-caption">TEMPO</span><input aria-label={`BPM ${bpm}`} type="range" min="40" max="200" value={bpm} style={{ '--bpm-progress': `${((bpm - 40) / 160) * 100}%` } as React.CSSProperties} onChange={event => changeBpm(Number(event.target.value))} /><output>{bpm}<small> BPM</small></output></label><label className="sound-control"><span>音色</span><select value={soundPreset} onChange={event => changeSound(event.target.value as SoundPreset)}><option value="sine">正弦波</option><option value="triangle">三角波</option><option value="piano">サンプリングピアノ</option><option value="bass">ベース風</option></select></label></div>
         {playbackError && <p className="playback-error" role="alert">音声を開始できませんでした。ブラウザの音声設定をご確認ください。</p>}
         <PianoKeyboard chordName={progression[keyboardIndex]?.symbol ?? ''} notes={audibleNotes} onNoteClick={midi => void previewMidiNote(midi)} />
@@ -401,6 +400,7 @@ function App() {
       <ChordLibrary keyName={settings.key} selectedIndex={selectedIndex} onApply={applyLibraryChord} onPreview={index => void previewSymbol(getDiatonicChords(settings.key)[index].symbol)} />
       <aside className="controls panel">
         <div className="panel-heading"><span className="section-index">03</span><div><h2>進行をデザイン</h2><p>好みの響きを設定してください</p></div></div>
+        <div className="preset-progressions"><h3>定番進行から選ぶ</h3><div>{progressionPresets.slice(0, showAllPresets ? progressionPresets.length : 4).map((preset, index) => <button type="button" key={preset.name} onClick={() => applyPreset(index)}><strong>{preset.name}</strong><small>{preset.degrees}</small></button>)}</div><button type="button" className="preset-toggle" onClick={() => setShowAllPresets(value => !value)}>{showAllPresets ? '閉じる' : `すべて表示（${progressionPresets.length}）`}</button></div>
         <div className="control-group key-control"><label htmlFor="key-select">KEY <span>調性</span></label><div className="select-wrap"><select id="key-select" value={settings.key} onChange={event => update('key', event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><span className="select-chevron">⌄</span></div></div>
         <div className="control-group"><div className="label-row"><label>CHORDS <span>コード数</span></label><span className="choice-hint">BAR COUNT</span></div><div className="segmented">{([4, 8, 16, 32, 64] as const).map(count => <button key={count} className={settings.count === count ? 'segment active' : 'segment'} onClick={() => update('count', count)}>{count}<small> bars</small></button>)}</div></div>
         <div className="controls-divider" />
@@ -411,7 +411,6 @@ function App() {
         <div className="theory-hint"><span className="hint-icon">✳</span><p><strong>理論のヒント</strong>自然さを上げると機能和声を重視。意外性を上げると借用和音やセカンダリードミナントが増えます。</p></div>
         <button className="generate-button" onClick={generate}><Icon name="spark" /><span>進行を生成</span><Icon name="arrow" /></button>
         <div className="generate-footnote"><span>✦</span> あなただけの響きを見つけよう</div>
-        <div className="preset-progressions"><h3>定番進行から選ぶ</h3><div>{progressionPresets.slice(0, showAllPresets ? progressionPresets.length : 4).map((preset, index) => <button type="button" key={preset.name} onClick={() => applyPreset(index)}><strong>{preset.name}</strong><small>{preset.degrees}</small></button>)}</div><button type="button" className="preset-toggle" onClick={() => setShowAllPresets(value => !value)}>{showAllPresets ? '閉じる' : `すべて表示（${progressionPresets.length}）`}</button></div>
       </aside>
     </section>
     <footer><span>CHORDCRAFT <i>©</i> 2026</span><span>MADE FOR THE LOVE OF MUSIC <i>♪</i></span><span>HARMONY, REIMAGINED.</span><span>ピアノ音源: “<a href="https://sfzinstruments.github.io/pianos/salamander/" target="_blank" rel="noreferrer">Salamander Grand Piano V3</a>” by Alexander Holm · <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">CC BY 3.0</a></span></footer>
