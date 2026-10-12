@@ -365,11 +365,11 @@ function App() {
     </header>
 
     <section className="hero" id="top">
-      <div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" />IDEAS, IN HARMONY</div><h1>次の一音に、<br /><span>出会う。</span></h1><p>音楽理論と偶然が交差する、コード進行ジェネレーター。<br className="desktop-break" />自然な流れの中に、思いがけない響きを見つけよう。</p></div>
+      <div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" />IDEAS, IN HARMONY</div><h1>コードを並べて、<br /><span>音をつくる。</span></h1><p>コードを自由に編集し、音を確かめながらアイデアを形にするエディター。<br className="desktop-break" />進行の生成は、作曲のきっかけとして使えます。</p></div>
       <div className="hero-note" aria-hidden="true"><span className="note-orbit orbit-one" /><span className="note-orbit orbit-two" /><span className="note-core">♪</span><span className="note-label">HARMONY<br />EXPLORER</span></div>
     </section>
 
-    <section className="workspace" aria-label="コード進行ジェネレーター">
+    <section className="workspace" aria-label="コードエディター">
       <div className="progression-column">
       <section className="preset-progressions panel"><h3>定番進行から選ぶ</h3><div>{progressionPresets.slice(0, showAllPresets ? progressionPresets.length : 4).map((preset, index) => <button type="button" key={preset.name} onClick={() => applyPreset(index)}><strong>{preset.name}</strong><small>{preset.degrees}</small></button>)}</div><button type="button" className="preset-toggle" onClick={() => setShowAllPresets(value => !value)}>{showAllPresets ? '閉じる' : `すべて表示（${progressionPresets.length}）`}</button></section>
       <section className="result panel" aria-live="polite">
@@ -400,7 +400,7 @@ function App() {
       </div>
       <ChordLibrary keyName={settings.key} selectedIndex={selectedIndex} onApply={applyLibraryChord} onPreview={index => void previewSymbol(getDiatonicChords(settings.key)[index].symbol)} />
       <aside className="controls panel">
-        <div className="panel-heading"><span className="section-index">03</span><div><h2>進行をデザイン</h2><p>好みの響きを設定してください</p></div></div>
+        <div className="panel-heading"><span className="section-index">03</span><div><h2>生成オプション</h2><p>アイデア出しに使う進行の条件</p></div></div>
         <div className="control-group key-control"><label htmlFor="key-select">KEY <span>調性</span></label><div className="select-wrap"><select id="key-select" value={settings.key} onChange={event => update('key', event.target.value as KeyName)}>{KEYS.map(key => <option key={key} value={key}>{key} major</option>)}</select><span className="select-chevron">⌄</span></div></div>
         <div className="control-group"><div className="label-row"><label>CHORDS <span>コード数</span></label><span className="choice-hint">BAR COUNT</span></div><div className="segmented">{([4, 8, 16, 32, 64] as const).map(count => <button key={count} className={settings.count === count ? 'segment active' : 'segment'} onClick={() => update('count', count)}>{count}<small> bars</small></button>)}</div></div>
         <div className="controls-divider" />
