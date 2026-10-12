@@ -1,5 +1,46 @@
 export const KEYS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'] as const
 export const CHORD_ROOTS = KEYS
+export const SCALES = [
+  { name: 'メジャー・スケール', intervals: [0, 2, 4, 5, 7, 9, 11] },
+  { name: 'ナチュラル・マイナー・スケール', intervals: [0, 2, 3, 5, 7, 8, 10] },
+  { name: 'ハーモニック・マイナー・スケール', intervals: [0, 2, 3, 5, 7, 8, 11] },
+  { name: 'メロディック・マイナー・スケール', intervals: [0, 2, 3, 5, 7, 9, 11] },
+  { name: 'アイオニアン・スケール', intervals: [0, 2, 4, 5, 7, 9, 11] },
+  { name: 'ドリアン・スケール', intervals: [0, 2, 3, 5, 7, 9, 10] },
+  { name: 'フリジアン・スケール', intervals: [0, 1, 3, 5, 7, 8, 10] },
+  { name: 'リディアン・スケール', intervals: [0, 2, 4, 6, 7, 9, 11] },
+  { name: 'ミクソリディアン・スケール', intervals: [0, 2, 4, 5, 7, 9, 10] },
+  { name: 'エオリアン・スケール', intervals: [0, 2, 3, 5, 7, 8, 10] },
+  { name: 'ロクリアン・スケール', intervals: [0, 1, 3, 5, 6, 8, 10] },
+  { name: 'メジャー・ペンタトニック・スケール', intervals: [0, 2, 4, 7, 9] },
+  { name: 'マイナー・ペンタトニック・スケール', intervals: [0, 3, 5, 7, 10] },
+  { name: 'ホールトーン・スケール', intervals: [0, 2, 4, 6, 8, 10] },
+  { name: 'ディミニッシュ・スケール', intervals: [0, 2, 3, 5, 6, 8, 9, 11] },
+  { name: 'コンビネーション・オブ・ディミニッシュ・スケール', intervals: [0, 1, 3, 4, 6, 7, 9, 10] },
+  { name: 'クロマチック・スケール', intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  { name: 'ブルーノート・スケール', intervals: [0, 3, 5, 6, 7, 10] },
+  { name: '都節（みやこぶし）音階', intervals: [0, 1, 5, 7, 8] },
+  { name: '民謡音階', intervals: [0, 2, 5, 7, 9] },
+  { name: 'オルタード・スケール', intervals: [0, 1, 3, 4, 6, 8, 10] },
+  { name: 'リディアン・ドミナント・スケール', intervals: [0, 2, 4, 6, 7, 9, 10] },
+  { name: 'ハーモニック・メジャー・スケール', intervals: [0, 2, 4, 5, 7, 8, 11] },
+  { name: 'ロクリアン・ナチュラル2・スケール', intervals: [0, 2, 3, 5, 6, 8, 10] },
+  { name: 'ビバップ・ドミナント・スケール', intervals: [0, 2, 4, 5, 7, 9, 10, 11] },
+  { name: 'エニグマティック・スケール', intervals: [0, 1, 4, 6, 8, 10, 11] },
+  { name: 'プロメテウス・スケール', intervals: [0, 2, 4, 6, 9, 10] },
+  { name: 'ヨナ抜き長音階', intervals: [0, 2, 4, 7, 9] },
+  { name: 'ヨナ抜き短音階', intervals: [0, 3, 5, 7, 10] },
+  { name: '琉球（沖縄）スケール', intervals: [0, 4, 5, 7, 11] },
+  { name: '律旋法（雅楽の音階）', intervals: [0, 2, 5, 7, 9] },
+  { name: '呂旋法', intervals: [0, 2, 4, 7, 9] },
+  { name: 'スパニッシュ・スケール', intervals: [0, 1, 4, 5, 7, 8, 10] },
+  { name: 'ジプシー・スケール', intervals: [0, 2, 3, 6, 7, 8, 11] },
+  { name: 'ハンガリアン・マイナー・スケール', intervals: [0, 2, 3, 6, 7, 8, 11] },
+  { name: 'アラビア音階（中近東スケール）', intervals: [0, 2, 4, 5, 6, 8, 10] },
+  { name: 'ペロッグ・スケール', intervals: [0, 1, 3, 7, 8] },
+  { name: 'スレンドロ・スケール', intervals: [0, 2, 5, 7, 10] },
+] as const
+export type ScaleName = typeof SCALES[number]['name']
 export const CHORD_MODIFIERS = [
   { value: 'major', label: 'Major', description: 'メジャーコード' }, { value: 'm', label: 'm', description: '短3度' },
   { value: '6', label: '6', description: '6度' }, { value: '7', label: '7', description: '短7度' }, { value: '9', label: '9', description: '9度' }, { value: '11', label: '11', description: '11度' }, { value: '13', label: '13', description: '13度' }, { value: 'b5', label: '♭5', description: '減5度' },
@@ -9,7 +50,7 @@ export const CHORD_MODIFIERS = [
 ] as const
 export type ChordModifier = typeof CHORD_MODIFIERS[number]['value'] | 'add9' | 'add11' | 'add13'
 export type KeyName = typeof KEYS[number]
-export type Settings = { key: KeyName; count: 4 | 8 | 16 | 32 | 64; naturalness: number; complexity: number; surprise: number }
+export type Settings = { key: KeyName; scale: ScaleName; count: 4 | 8 | 16 | 32 | 64; naturalness: number; complexity: number; surprise: number }
 export type Chord = { symbol: string; roman: string; role: 'Tonic' | 'Subdominant' | 'Dominant' | 'Color'; pitch: number; notes: number[]; bass?: number; inversion?: number; octave?: 3 | 4 | 5; duration?: '4n' | '8n'; modifiers?: ChordModifier[]; baseSymbol?: string }
 
 const names = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']
@@ -75,18 +116,23 @@ function transitionWeight(from: number, to: number): number {
   return transitionWeights[from]?.[to] ?? 0.86
 }
 
-export function getDiatonicChords(key: KeyName): Chord[] {
+export function getDiatonicChords(key: KeyName, scaleName: ScaleName = 'メジャー・スケール'): Chord[] {
   const tonic = KEYS.indexOf(key)
-  return scale.map((offset, degree) => {
+  const selectedScale = SCALES.find(item => item.name === scaleName) ?? SCALES[0]
+  const offsets = selectedScale.intervals
+  return offsets.map((offset, degree) => {
     const root = (tonic + offset) % 12
-    const kind = kinds[degree]
+    const triad = [0, 2, 4].map(step => (tonic + offsets[(degree + step) % offsets.length] + (degree + step >= offsets.length ? 12 : 0)) % 12)
+    const third = (triad[1] - root + 12) % 12
+    const fifth = (triad[2] - root + 12) % 12
+    const suffix = third === 3 ? fifth === 6 ? 'dim' : 'm' : third === 4 ? fifth === 8 ? 'aug' : '' : 'sus'
     const role = degree === 0 || degree === 2 || degree === 5 ? 'Tonic' : degree === 1 || degree === 3 ? 'Subdominant' : 'Dominant'
     return {
-      symbol: chordName(root, kind, 0),
-      roman: romans[degree],
+      symbol: `${names[root]}${suffix}`,
+      roman: `${degree + 1}${suffix === 'm' ? 'm' : suffix === 'dim' ? '°' : ''}`,
       role,
       pitch: root,
-      notes: intervals(kind, 0).map(interval => (root + interval) % 12),
+      notes: triad,
     }
   })
 }
@@ -170,6 +216,8 @@ function weightedPick<T extends { weight: number }>(items: T[]): T {
 
 export function generateProgression(settings: Settings): Chord[] {
   const tonic = KEYS.indexOf(settings.key)
+  const selectedScale = SCALES.find(item => item.name === settings.scale) ?? SCALES[0]
+  const scaleOffsets = selectedScale.intervals
   const natural = settings.naturalness / 10
   const complex = settings.complexity / 10
   const surprise = settings.surprise / 10
@@ -178,11 +226,14 @@ export function generateProgression(settings: Settings): Chord[] {
 
   for (let i = 0; i < settings.count; i++) {
     const candidates: Candidate[] = []
-    for (let degree = 0; degree < 7; degree++) {
-      const root = (tonic + scale[degree]) % 12
+    for (let degree = 0; degree < scaleOffsets.length; degree++) {
+      const root = (tonic + scaleOffsets[degree]) % 12
       const role = degree === 0 || degree === 2 || degree === 5 ? 'Tonic' : degree === 1 || degree === 3 ? 'Subdominant' : 'Dominant'
-      const kind = kinds[degree]
-      let weight = [1.5, 1.25, 0.8, 1.4, 1.5, 1.2, 0.48][degree]
+      const triad = [0, 2, 4].map(step => (scaleOffsets[(degree + step) % scaleOffsets.length] + (degree + step >= scaleOffsets.length ? 12 : 0)) % 12)
+      const third = (triad[1] - scaleOffsets[degree] + 12) % 12
+      const fifth = (triad[2] - scaleOffsets[degree] + 12) % 12
+      const kind = third === 3 ? fifth === 6 ? 'diminished' : 'minor' : third === 4 ? fifth === 8 ? 'augmented' : 'major' : 'major'
+      let weight = [1.5, 1.25, 0.8, 1.4, 1.5, 1.2, 0.48][degree] ?? 0.8
       if (i === 0) {
         const openingWeight = [2.15, 0.72, 0.6, 1.8, 0.68, 1.65, 0.3][degree]
         weight *= 1 + natural * (openingWeight - 1)
@@ -192,7 +243,8 @@ export function generateProgression(settings: Settings): Chord[] {
       const quality = complex > 0.55 && role !== 'Dominant' ? (degree === 0 || degree === 3 ? 'major7' : 'minor7') : kind
       const ext = complex > 0.45 && Math.random() < complex * 0.38 ? [9, 11, 13][Math.floor(Math.random() * 3)] : 0
       const notes = intervals(quality, ext).map(n => (root + n) % 12)
-      candidates.push({ symbol: chordName(root, quality, ext), roman: romans[degree] + (quality.includes('7') ? '⁷' : ext ? `${ext}` : ''), role, pitch: root, notes, degree, kind: quality, weight })
+      const roman = `${degree + 1}${kind === 'minor' ? 'm' : kind === 'diminished' ? '°' : ''}`
+      candidates.push({ symbol: chordName(root, quality, ext), roman: roman + (quality.includes('7') ? '⁷' : ext ? `${ext}` : ''), role, pitch: root, notes, degree, kind: quality, weight })
     }
     // Borrowed iv / bVII / bVI and secondary dominants provide controlled chromatic color.
     const borrowed = [
