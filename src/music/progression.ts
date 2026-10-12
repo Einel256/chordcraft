@@ -60,8 +60,6 @@ const pitchClassesByName: Record<string, number> = {
   A: 9, 'A#': 10, Bb: 10, B: 11, Cb: 11,
 }
 const scale = [0, 2, 4, 5, 7, 9, 11]
-const romans = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°']
-const kinds = ['major', 'minor', 'minor', 'major', 'major', 'minor', 'diminished']
 export const FUNCTION_DESCRIPTIONS = [
   'トニック｜安定・始まりや着地',
   'サブドミナント｜ドミナントへつなぐ',
