@@ -33,6 +33,8 @@ const progressionPresets: ProgressionPreset[] = [
   { name: 'コンファメ進行', degrees: 'Imaj7 – viiø7 – III7 – vi7 – v7 – I7 – IVmaj7', chords: [{ offset: 0, modifiers: ['major', '7'] }, { offset: 11, modifiers: [], suffix: 'm7♭5', roman: 'viiø7' }, { offset: 4, modifiers: ['7'] }, { offset: 9, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['m', '7'] }, { offset: 0, modifiers: ['7'] }, { offset: 5, modifiers: ['major', '7'] }] },
   { name: '♯Vdim7経過', degrees: 'I – V7 – ♯Vdim7 – vi7 – IV', chords: [{ offset: 0, modifiers: [] }, { offset: 7, modifiers: ['7'] }, { offset: 8, modifiers: ['dim', '7'], roman: '♯Vdim7' }, { offset: 9, modifiers: ['m', '7'] }, { offset: 5, modifiers: [] }] },
   { name: 'ドッペルドミナント', degrees: 'vi7 – II7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 2, modifiers: ['7'] }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
+  { name: 'オルタード・ドミナント', degrees: 'ii7 – V7alt – Imaj7', chords: [{ offset: 2, modifiers: ['m', '7'] }, { offset: 7, modifiers: ['alt'] }, { offset: 0, modifiers: ['major', '7'] }] },
+  { name: '裏コード（♭II7alt）', degrees: 'ii7 – ♭II7alt – Imaj7', chords: [{ offset: 2, modifiers: ['m', '7'] }, { offset: 1, modifiers: ['alt'] }, { offset: 0, modifiers: ['major', '7'] }] },
   { name: '♯IVø7ドミナント', degrees: 'vi7 – ♯ivø7 – V7 – Imaj7', chords: [{ offset: 9, modifiers: ['m', '7'] }, { offset: 6, modifiers: [], suffix: 'm7♭5', roman: '♯ivø7' }, { offset: 7, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
   { name: 'マリオ進行', degrees: 'I/V – ♭VImaj7 – ♭VII7 – Imaj7', chords: [{ offset: 0, modifiers: [], bassOffset: 7 }, { offset: 8, modifiers: ['major', '7'] }, { offset: 10, modifiers: ['7'] }, { offset: 0, modifiers: ['major', '7'] }] },
   { name: 'サブドミナントマイナー', degrees: 'IV – iv/♭VI – I', chords: [{ offset: 5, modifiers: [] }, { offset: 5, modifiers: ['m'], bassOffset: 8 }, { offset: 0, modifiers: [] }] },
@@ -84,6 +86,13 @@ function chordFromInput(symbol: string, key: KeyName): Chord {
   if (/add9/.test(quality)) suffix += 'add9'
   if (/add11/.test(quality)) suffix += 'add11'
   if (/add13/.test(quality)) suffix += 'add13'
+  if (/alt/.test(quality)) suffix += 'alt'
+  else {
+    if (/b9/.test(quality)) suffix += '♭⁹'
+    if (/#9/.test(quality)) suffix += '♯⁹'
+    if (/#11/.test(quality)) suffix += '♯¹¹'
+    if (/b13/.test(quality)) suffix += '♭¹³'
+  }
   const diatonicDegree = [0, 2, 4, 5, 7, 9, 11].indexOf(rootDelta)
   const role: Chord['role'] = diatonicDegree < 0 ? 'Color' : [0, 2, 5].includes(diatonicDegree) ? 'Tonic' : [1, 3].includes(diatonicDegree) ? 'Subdominant' : 'Dominant'
   return { symbol, roman: `${numeral}${suffix}`, role, pitch: parsed.root, notes: parsed.pitchClasses, bass: parsed.bass }
@@ -112,6 +121,13 @@ function modifiersFromSymbol(symbol: string): ChordModifier[] {
   if (suffix.includes('add9')) modifiers.push('add9')
   if (suffix.includes('add11')) modifiers.push('add11')
   if (suffix.includes('add13')) modifiers.push('add13')
+  if (/alt/.test(suffix)) modifiers.push('alt')
+  else {
+    if (/b9|♭9/.test(suffix)) modifiers.push('b9')
+    if (/#9|♯9/.test(suffix)) modifiers.push('#9')
+    if (/#11|♯11/.test(suffix)) modifiers.push('#11')
+    if (/b13|♭13/.test(suffix)) modifiers.push('b13')
+  }
   return modifiers
 }
 

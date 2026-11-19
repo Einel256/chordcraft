@@ -66,6 +66,10 @@ export function parseChord(symbol: string): ParsedChord {
   if (/#11/.test(quality)) intervals.push(18)
   if (/b11/.test(quality)) intervals.push(16)
   if (/b13/.test(quality)) intervals.push(20)
+  if (/alt/.test(quality)) {
+    if (!intervals.includes(10)) intervals.push(10)
+    intervals.push(13, 15, 20)
+  }
   if (isMinor && /maj7/.test(quality)) intervals = intervals.filter(interval => interval !== 10)
 
   if (omitDegrees.length) intervals = intervals.filter(interval => !omitDegrees.includes(intervalDegree(interval)))

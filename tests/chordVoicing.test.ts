@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { midiToToneNote, parseChord, voiceChordProgression } from '../src/audio/chordVoicing.ts'
+import { makeCustomChord } from '../src/music/progression.ts'
 
 test('parses basic triads, sevenths and extensions', () => {
   assert.deepEqual(parseChord('C').pitchClasses, [0, 4, 7])
@@ -19,6 +20,16 @@ test('parses altered tensions and slash bass notes', () => {
   assert.deepEqual(parseChord('G7(b9)').pitchClasses, [7, 11, 2, 5, 8])
   assert.equal(parseChord('G7/B').bass, 11)
   assert.deepEqual(voiceChordProgression(['G7/B'])[0], [59, 62, 65, 67])
+})
+
+test('parses and builds altered chords', () => {
+  assert.deepEqual(parseChord('G7alt').pitchClasses, [7, 11, 2, 5, 8, 10, 3])
+  assert.equal(makeCustomChord('C', 'G', ['alt']).symbol, 'G7alt')
+  assert.deepEqual(makeCustomChord('C', 'G', ['alt']).notes, [7, 11, 2, 5, 8, 10, 3])
+  assert.equal(makeCustomChord('C', 'G', ['b9']).symbol, 'G7(♭9)')
+  assert.deepEqual(makeCustomChord('C', 'G', ['b9']).notes, [7, 11, 2, 5, 8])
+  assert.equal(makeCustomChord('C', 'C', ['major', '7', '#11']).symbol, 'Cmaj7(♯11)')
+  assert.deepEqual(makeCustomChord('C', 'C', ['major', '7', '#11']).notes, [0, 4, 7, 11, 6])
 })
 
 test('creates the requested octave voicings and smooth chord changes', () => {

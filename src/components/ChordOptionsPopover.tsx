@@ -38,8 +38,11 @@ export default function ChordOptionsPopover({ keyName, root, modifiers, inversio
         m: ['dim', 'aug', 'sus2', 'sus4'], dim: ['m', 'aug', 'sus2', 'sus4'], aug: ['m', 'dim', 'sus2', 'sus4'],
         sus2: ['m', 'dim', 'aug', 'sus4'], sus4: ['m', 'dim', 'aug', 'sus2'],
         '9': ['add9'], '11': ['add11'], '13': ['add13'], add9: ['9'], add11: ['11'], add13: ['13'],
+        b9: ['9', 'add9', 'major'], '#9': ['9', 'add9', 'major'], '#11': ['11', 'add11'],
+        b13: ['13', 'add13', 'major'], alt: ['b9', '#9', '#11', 'b13', '9', '11', '13', 'add9', 'add11', 'add13', 'major'],
       }
-      next = next.filter(value => !conflicts[modifier]?.includes(value))
+      next = next.filter(value => !conflicts[modifier]?.includes(value) && !conflicts[value]?.includes(modifier))
+      if (modifier === 'b9' || modifier === '#9' || modifier === 'b13' || modifier === 'alt') next = [...next, '7']
     }
     onModifiersChange([...new Set(next)])
   }

@@ -47,6 +47,9 @@ export const CHORD_MODIFIERS = [
   { value: 'dim', label: 'dim', description: '減5度' }, { value: 'aug', label: 'aug', description: '増5度' },
   { value: 'sus2', label: 'sus2', description: '2度に置換' }, { value: 'sus4', label: 'sus4', description: '4度に置換' },
   { value: 'add9', label: 'add9', description: '9度を追加' }, { value: 'add11', label: 'add11', description: '11度を追加' }, { value: 'add13', label: 'add13', description: '13度を追加' },
+  { value: 'b9', label: '♭9', description: '減9度（オルタード）' }, { value: '#9', label: '♯9', description: '増9度（オルタード）' },
+  { value: '#11', label: '♯11', description: '増11度（リディアン／オルタード）' }, { value: 'b13', label: '♭13', description: '減13度（オルタード）' },
+  { value: 'alt', label: 'alt', description: 'オルタード・ドミナント（♭9・♯9・♭13）' },
 ] as const
 export type ChordModifier = typeof CHORD_MODIFIERS[number]['value'] | 'add9' | 'add11' | 'add13'
 export type KeyName = typeof KEYS[number]
@@ -72,7 +75,7 @@ export const FUNCTION_DESCRIPTIONS = [
 type Candidate = Chord & { degree: number; kind: string; weight: number }
 
 function intervals(kind: string, extension: number): number[] {
-  const base: Record<string, number[]> = { major: [0, 4, 7], minor: [0, 3, 7], diminished: [0, 3, 6], augmented: [0, 4, 8], sus2: [0, 2, 7], sus4: [0, 5, 7], 'major7': [0, 4, 7, 11], 'minor7': [0, 3, 7, 10], 'dominant7': [0, 4, 7, 10], 'half-dim7': [0, 3, 6, 10] }
+  const base: Record<string, number[]> = { major: [0, 4, 7], minor: [0, 3, 7], diminished: [0, 3, 6], augmented: [0, 4, 8], sus2: [0, 2, 7], sus4: [0, 5, 7], 'major7': [0, 4, 7, 11], 'minor7': [0, 3, 7, 10], 'dominant7': [0, 4, 7, 10], 'half-dim7': [0, 3, 6, 10], 'altered': [0, 4, 7, 10, 13, 15, 20] }
   const ns = [...(base[kind] ?? base.major)]
   if (extension === 9) ns.push(14)
   if (extension === 11) ns.push(17)
@@ -81,7 +84,7 @@ function intervals(kind: string, extension: number): number[] {
 }
 
 function chordName(root: number, kind: string, ext: number, slash?: number): string {
-  const suffix: Record<string, string> = { major: '', minor: 'm', diminished: 'dim', augmented: 'aug', sus2: 'sus2', sus4: 'sus4', major7: 'maj7', minor7: 'm7', dominant7: '7', 'half-dim7': 'm7♭5' }
+  const suffix: Record<string, string> = { major: '', minor: 'm', diminished: 'dim', augmented: 'aug', sus2: 'sus2', sus4: 'sus4', major7: 'maj7', minor7: 'm7', dominant7: '7', 'half-dim7': 'm7♭5', altered: '7alt' }
   const extensionSuffix: Record<string, string> = { major7: 'maj', minor7: 'm', dominant7: '' }
   const chordSuffix = ext && kind.endsWith('7') ? `${extensionSuffix[kind] ?? ''}${ext}` : `${suffix[kind] ?? ''}${ext ? `add${ext}` : ''}`
   return `${names[root]}${chordSuffix}${slash === undefined ? '' : `/${names[slash]}`}`
@@ -175,8 +178,9 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const baseIntervals = diminished ? [0, 3, 6] : augmented ? [0, 4, 8] : sus2 ? [0, 2, 7] : sus4 ? [0, 5, 7] : minor ? [0, 3, 7] : [0, 4, 7]
   const intervals = flatFive ? baseIntervals.map(interval => interval === 7 ? 6 : interval) : baseIntervals
   const numericExtension = has('13') ? 13 : has('11') ? 11 : has('9') ? 9 : 0
+  const alteredDominant = has('alt') || has('b9') || has('#9') || has('b13')
   if (has('major') && has('7')) intervals.push(11)
-  else if (has('7') || numericExtension) intervals.push(diminished ? 9 : 10)
+  else if (has('7') || numericExtension || alteredDominant) intervals.push(diminished ? 9 : 10)
   if (has('6')) intervals.push(9)
   if (has('add9')) intervals.push(14)
   if (has('add11')) intervals.push(17)
@@ -184,15 +188,22 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   if (numericExtension >= 9) intervals.push(14)
   if (numericExtension >= 11) intervals.push(17)
   if (numericExtension >= 13) intervals.push(21)
+  if (has('b9') || has('alt')) intervals.push(13)
+  if (has('#9') || has('alt')) intervals.push(15)
+  if (has('#11')) intervals.push(18)
+  if (has('b13') || has('alt')) intervals.push(20)
   const baseSymbol = diminished || (minor && flatFive) ? 'dim' : augmented ? 'aug' : sus2 ? 'sus2' : sus4 ? 'sus4' : minor ? 'm' : ''
   let seventhSymbol = ''
   let seventhRoman = ''
   if (has('major') && has('7')) { seventhSymbol = minor ? 'mM7' : `${baseSymbol}maj7`; seventhRoman = 'maj⁷' }
-  else if (has('7')) { seventhSymbol = numericExtension ? '' : diminished ? 'dim7' : sus2 || sus4 ? `7${baseSymbol}` : `${baseSymbol}7`; seventhRoman = diminished ? '°⁷' : '⁷' }
+  else if (has('7') || alteredDominant) { seventhSymbol = numericExtension ? '' : diminished ? 'dim7' : sus2 || sus4 ? `7${baseSymbol}` : `${baseSymbol}7`; seventhRoman = diminished ? '°⁷' : '⁷' }
   const addSixthSymbol = has('6') ? (has('major') || has('7') ? '(add6)' : '6') : ''
   const extensionSymbol = (['add9', 'add11', 'add13'] as const).filter(option => has(option)).join('')
   const addedExtensions = numericExtension ? `${has('major') && has('7') ? 'maj' : minor ? 'm' : ''}${numericExtension}` : ''
-  const romanSuffix = `${diminished && !seventhRoman.includes('°') ? '°' : ''}${seventhRoman}${has('6') && !has('major') && !has('7') ? '⁶' : ''}${has('add9') ? 'add9' : ''}${has('add11') ? 'add11' : ''}${has('add13') ? 'add13' : ''}`
+  const alterationLabels = `${has('b9') ? '♭9' : ''}${has('#9') ? '♯9' : ''}${has('#11') ? '♯11' : ''}${has('b13') ? '♭13' : ''}`
+  const alteredSymbol = has('alt') ? 'alt' : alterationLabels ? `(${alterationLabels})` : ''
+  const alteredRoman = has('alt') ? 'alt' : `${has('b9') ? '♭⁹' : ''}${has('#9') ? '♯⁹' : ''}${has('#11') ? '♯¹¹' : ''}${has('b13') ? '♭¹³' : ''}`
+  const romanSuffix = `${diminished && !seventhRoman.includes('°') ? '°' : ''}${seventhRoman}${has('6') && !has('major') && !has('7') ? '⁶' : ''}${has('add9') ? 'add9' : ''}${has('add11') ? 'add11' : ''}${has('add13') ? 'add13' : ''}${alteredRoman}`
   const degree = scale.indexOf(rootInterval)
   const role: Chord['role'] = degree < 0 ? 'Color' : degree === 0 || degree === 2 || degree === 5 ? 'Tonic' : degree === 1 || degree === 3 ? 'Subdominant' : 'Dominant'
   const roman = `${numeral}${romanSuffix}`
@@ -200,7 +211,7 @@ export function makeCustomChord(key: KeyName, rootName: KeyName, modifiers: Chor
   const inversion = Math.max(0, Math.min(voicing.inversion ?? 0, notes.length - 1))
   const bass = voicing.slashBass ?? (inversion > 0 ? notes[inversion] : undefined)
   const slash = bass === undefined || bass === pitch ? '' : `/${names[bass]}`
-  const suffix = `${addedExtensions || seventhSymbol || baseSymbol}${flatFive && !diminished && !minor ? '(♭5)' : ''}${addSixthSymbol}${extensionSymbol}`
+  const suffix = `${addedExtensions || seventhSymbol || baseSymbol}${flatFive && !diminished && !minor ? '(♭5)' : ''}${addSixthSymbol}${extensionSymbol}${alteredSymbol}`
   const symbol = `${rootName}${suffix}${slash}`
   return { symbol, baseSymbol: symbol, roman, role, pitch, notes, bass, inversion, modifiers: [...modifiers] }
 }
@@ -238,11 +249,14 @@ export function generateProgression(settings: Settings): Chord[] {
       }
       if (i === settings.count - 1 && degree === 0) weight *= 4.5 + natural * 8
       if (natural > 0.5 && degree === 6) weight *= 0.68
-      const quality = complex > 0.55 && role !== 'Dominant' ? (degree === 0 || degree === 3 ? 'major7' : 'minor7') : kind
-      const ext = complex > 0.45 && Math.random() < complex * 0.38 ? [9, 11, 13][Math.floor(Math.random() * 3)] : 0
+      let quality = complex > 0.55 && role !== 'Dominant' ? (degree === 0 || degree === 3 ? 'major7' : 'minor7') : kind
+      // Altered dominants add b9 / #9 / b13 color when the user asks for complexity and surprise.
+      if (quality === 'major' && role === 'Dominant' && complex > 0.45 && surprise > 0.3 && Math.random() < complex * surprise * 0.9) quality = 'altered'
+      const ext = quality === 'altered' ? 0 : complex > 0.45 && Math.random() < complex * 0.38 ? [9, 11, 13][Math.floor(Math.random() * 3)] : 0
       const notes = intervals(quality, ext).map(n => (root + n) % 12)
+      const seventh = quality.includes('7') || quality === 'altered'
       const roman = `${degree + 1}${kind === 'minor' ? 'm' : kind === 'diminished' ? '°' : ''}`
-      candidates.push({ symbol: chordName(root, quality, ext), roman: roman + (quality.includes('7') ? '⁷' : ext ? `${ext}` : ''), role, pitch: root, notes, degree, kind: quality, weight })
+      candidates.push({ symbol: chordName(root, quality, ext), roman: `${roman}${seventh ? '⁷' : ext ? `${ext}` : ''}${quality === 'altered' ? 'alt' : ''}`, role, pitch: root, notes, degree, kind: quality, weight })
     }
     // Borrowed iv / bVII / bVI and secondary dominants provide controlled chromatic color.
     const borrowed = [
